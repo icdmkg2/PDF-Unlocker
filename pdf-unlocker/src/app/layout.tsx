@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Sidebar } from "@/components/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PDF Unlocker - Remove Password Protection",
-  description: "Unlock password-protected PDF files instantly. Secure, fast, and free.",
+  title: "PDF Studio — Your all-in-one PDF toolkit",
+  description: "Merge, split, compress, edit, protect and more — 100% client-side, no uploads.",
 };
 
 export default function RootLayout({
@@ -27,7 +28,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="flex h-screen overflow-hidden bg-background">
+          <Sidebar />
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

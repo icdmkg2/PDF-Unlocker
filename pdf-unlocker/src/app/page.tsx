@@ -1,343 +1,275 @@
-"use client";
+import Link from "next/link";
+import {
+  GitMerge, Scissors, LayoutGrid, Minimize2, Wrench,
+  ImageIcon, Globe, Camera,
+  Images, Archive,
+  PenTool, RotateCw, Hash, Droplets, Crop,
+  Unlock, Lock, PenLine, EyeOff, GitCompare,
+  ArrowRight, ShieldCheck, Zap, Monitor, Sparkles,
+} from "lucide-react";
 
-import { useState, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+const categories = [
+  {
+    name: "Organize & Optimize",
+    accent: "from-blue-500 to-indigo-500",
+    tools: [
+      { icon: GitMerge,  title: "Merge PDF",     desc: "Combine multiple PDFs into one",         href: "/merge",       tw: "text-blue-400   bg-blue-400/10"   },
+      { icon: Scissors,  title: "Split PDF",     desc: "Extract pages into separate files",      href: "/split",       tw: "text-indigo-400 bg-indigo-400/10" },
+      { icon: LayoutGrid,title: "Organize PDF",  desc: "Drag-and-drop page reordering",          href: "/organize",    tw: "text-violet-400 bg-violet-400/10" },
+      { icon: Minimize2, title: "Compress PDF",  desc: "Reduce size without losing quality",     href: "/compress",    tw: "text-sky-400    bg-sky-400/10"    },
+      { icon: Wrench,    title: "Repair PDF",    desc: "Fix corrupted or damaged files",         href: "/repair",      tw: "text-cyan-400   bg-cyan-400/10"   },
+    ],
+  },
+  {
+    name: "Convert TO PDF",
+    accent: "from-violet-500 to-purple-500",
+    tools: [
+      { icon: ImageIcon, title: "JPG to PDF",    desc: "Images to a single PDF document",       href: "/jpg-to-pdf",  tw: "text-purple-400 bg-purple-400/10" },
+      { icon: Globe,     title: "HTML to PDF",   desc: "Render HTML content as a PDF",          href: "/html-to-pdf", tw: "text-fuchsia-400 bg-fuchsia-400/10"},
+      { icon: Camera,    title: "Scan to PDF",   desc: "Camera or QR code scan to PDF",         href: "/scan",        tw: "text-pink-400   bg-pink-400/10"   },
+    ],
+  },
+  {
+    name: "Convert FROM PDF",
+    accent: "from-emerald-500 to-teal-500",
+    tools: [
+      { icon: Images,    title: "PDF to JPG",    desc: "Export pages as JPEG images or ZIP",    href: "/pdf-to-jpg",  tw: "text-emerald-400 bg-emerald-400/10"},
+      { icon: Archive,   title: "PDF to PDF/A",  desc: "Archival format with XMP metadata",     href: "/pdf-to-pdfa", tw: "text-teal-400   bg-teal-400/10"   },
+    ],
+  },
+  {
+    name: "Edit & Annotate",
+    accent: "from-orange-500 to-amber-500",
+    tools: [
+      { icon: PenTool,   title: "Edit PDF",      desc: "Draw, annotate, shapes, signatures",    href: "/edit",        tw: "text-orange-400 bg-orange-400/10",  featured: true },
+      { icon: RotateCw,  title: "Rotate PDF",    desc: "Fix page orientation instantly",        href: "/rotate",      tw: "text-amber-400  bg-amber-400/10"  },
+      { icon: Hash,      title: "Page Numbers",  desc: "Stamp numbers at any position",         href: "/page-numbers",tw: "text-yellow-400 bg-yellow-400/10" },
+      { icon: Droplets,  title: "Watermark",     desc: "Center or tiled text overlay",          href: "/watermark",   tw: "text-lime-400   bg-lime-400/10"   },
+      { icon: Crop,      title: "Crop PDF",      desc: "Trim margins with mm precision",        href: "/crop",        tw: "text-green-400  bg-green-400/10"  },
+    ],
+  },
+  {
+    name: "Security & Signatures",
+    accent: "from-rose-500 to-red-500",
+    tools: [
+      { icon: Unlock,    title: "Unlock PDF",    desc: "Remove password protection",            href: "/unlock",      tw: "text-rose-400   bg-rose-400/10"   },
+      { icon: Lock,      title: "Protect PDF",   desc: "Encrypt with user & owner passwords",   href: "/protect",     tw: "text-red-400    bg-red-400/10"    },
+      { icon: PenLine,   title: "Sign PDF",      desc: "Draw and embed your signature",         href: "/sign",        tw: "text-pink-400   bg-pink-400/10"   },
+      { icon: EyeOff,    title: "Redact PDF",    desc: "Permanently black out sensitive text",  href: "/redact",      tw: "text-orange-400 bg-orange-400/10" },
+      { icon: GitCompare,title: "Compare PDF",   desc: "Visual + text diff between two files",  href: "/compare",     tw: "text-violet-400 bg-violet-400/10" },
+    ],
+  },
+];
 
-export default function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [unlockedPdfUrl, setUnlockedPdfUrl] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    setError(null);
-    setUnlockedPdfUrl(null);
-
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type === "application/pdf") {
-      setFile(droppedFile);
-    } else {
-      setError("Please drop a valid PDF file");
-    }
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setUnlockedPdfUrl(null);
-    }
-  };
-
-  const handleUnlock = async () => {
-    if (!file) {
-      setError("Please select a PDF file first");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    setUnlockedPdfUrl(null);
-    setProgress("Loading pdfcpu (30MB, first time only)...");
-
-    try {
-      // Dynamically import pdfcpu-wasm
-      const { Pdfcpu } = await import("pdfcpu-wasm");
-
-      // Create pdfcpu instance with local WASM file
-      const pdfcpu = new Pdfcpu("/pdfcpu.wasm");
-
-      setProgress("Decrypting PDF (preserving text)...");
-
-      // Create input file with the uploaded PDF
-      const inputFile = new File([await file.arrayBuffer()], "input.pdf", { type: "application/pdf" });
-
-      // Build pdfcpu decrypt command
-      // pdfcpu decrypt [-upw userpw] [-opw ownerpw] inFile [outFile]
-      const args = ["decrypt"];
-
-      if (password) {
-        args.push("-upw", password);
-        args.push("-opw", password);
-      }
-
-      args.push("/input/input.pdf", "/output/output.pdf");
-
-      // Run pdfcpu
-      const result = await pdfcpu.run(args, [inputFile]);
-
-      // Read the output file
-      const outputFile = await result.readFile("output.pdf", "application/pdf");
-
-      if (!outputFile) {
-        throw new Error("Decryption failed. Please check the password and try again.");
-      }
-
-      // Create URL for download
-      const url = URL.createObjectURL(outputFile);
-      setUnlockedPdfUrl(url);
-      setProgress(null);
-
-    } catch (err) {
-      console.error("PDF unlock error:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-
-      if (errorMessage.includes("password") || errorMessage.includes("Password") || errorMessage.includes("encrypted")) {
-        if (!password) {
-          setError("This PDF is password-protected. Please enter the password.");
-        } else {
-          setError("Incorrect password. Please try again.");
-        }
-      } else if (errorMessage.includes("Decryption failed")) {
-        setError(errorMessage);
-      } else {
-        setError("Failed to unlock PDF: " + errorMessage);
-      }
-      setProgress(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDownload = () => {
-    if (unlockedPdfUrl && file) {
-      const a = document.createElement("a");
-      a.href = unlockedPdfUrl;
-      a.download = `unlocked_${file.name}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  };
-
-  const handlePrint = () => {
-    if (unlockedPdfUrl) {
-      const printWindow = window.open(unlockedPdfUrl, "_blank");
-      if (printWindow) {
-        printWindow.addEventListener("load", () => {
-          printWindow.print();
-        });
-      }
-    }
-  };
-
-  const resetForm = () => {
-    setFile(null);
-    setPassword("");
-    setError(null);
-    setUnlockedPdfUrl(null);
-    setProgress(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <CardTitle className="text-2xl">PDF Unlocker</CardTitle>
-          <CardDescription>
-            Remove password protection with text fully preserved
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-full bg-background">
 
-        <CardContent className="space-y-6">
-          {/* File Upload Area */}
-          <div
-            className={`relative border-2 border-dashed rounded-lg p-8 transition-colors cursor-pointer ${isDragging
-                ? "border-primary bg-primary/10"
-                : file
-                  ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50"
-              }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <div className="text-center">
-              {file ? (
-                <>
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-primary/20 rounded-full mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <p className="text-foreground font-medium truncate px-4">{file.name}</p>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-muted rounded-full mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                  </div>
-                  <p className="text-foreground font-medium">Drop your PDF here</p>
-                  <p className="text-muted-foreground text-sm mt-1">or click to browse</p>
-                </>
-              )}
-            </div>
+      {/* ─── Hero ──────────────────────────────────────────────────── */}
+      <section className="relative isolate overflow-hidden px-6 pt-20 pb-16 text-center">
+        {/* Background orbs */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/20 blur-[128px] opacity-50" />
+          <div className="absolute top-1/2 left-1/4 w-72 h-72 rounded-full bg-blue-600/20 blur-[96px] opacity-40" />
+          <div className="absolute top-1/3 right-1/4 w-64 h-64 rounded-full bg-violet-600/20 blur-[96px] opacity-35" />
+        </div>
+
+        <div className="mx-auto max-w-4xl">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-8 rounded-full border border-primary/25 bg-primary/8 text-primary text-xs font-medium shadow-sm shadow-primary/10">
+            <Sparkles className="h-3 w-3" />
+            20 tools &bull; 100% client-side &bull; No uploads ever
           </div>
 
-          {/* Password Input */}
-          <div className="space-y-2">
-            <Label htmlFor="password">PDF Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter the PDF password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
+          {/* Headline */}
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-foreground">
+            The PDF toolkit
+            <br />
+            <span className="bg-gradient-to-r from-primary via-blue-400 to-violet-400 bg-clip-text text-transparent">
+              that respects you
+            </span>
+          </h1>
 
-          {/* Progress Message */}
-          {progress && (
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-muted-foreground text-sm">
-              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              {progress}
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          {/* Success Message & Actions */}
-          {unlockedPdfUrl && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                PDF unlocked with text preserved!
-              </div>
-              <div className="flex gap-3">
-                <Button onClick={handleDownload} className="flex-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download
-                </Button>
-                <Button onClick={handlePrint} variant="secondary" className="flex-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Print
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            {!unlockedPdfUrl ? (
-              <Button
-                onClick={handleUnlock}
-                disabled={!file || isLoading}
-                className="flex-1"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Unlocking...
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                    </svg>
-                    Unlock PDF
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button onClick={resetForm} variant="outline" className="flex-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Unlock Another PDF
-              </Button>
-            )}
-          </div>
-
-          {/* Footer */}
-          <p className="text-center text-muted-foreground text-xs pt-2">
-            100% client-side • Text preserved • Powered by pdfcpu
+          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Merge, split, compress, annotate, protect — everything you need, running entirely in your browser.
+            No accounts, no subscriptions, no file uploads.
           </p>
-        </CardContent>
-      </Card>
+
+          {/* CTAs */}
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Link href="/edit"
+              className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5">
+              <PenTool className="h-4 w-4" />
+              Open PDF Editor
+              <ArrowRight className="h-3.5 w-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <Link href="/merge"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card text-foreground text-sm font-semibold hover:bg-muted transition-all border border-border hover:-translate-y-0.5">
+              <GitMerge className="h-4 w-4" />
+              Merge PDFs
+            </Link>
+            <Link href="/compress"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card text-foreground text-sm font-semibold hover:bg-muted transition-all border border-border hover:-translate-y-0.5">
+              <Minimize2 className="h-4 w-4" />
+              Compress PDF
+            </Link>
+          </div>
+
+          {/* Stat pills */}
+          <div className="mt-12 flex flex-wrap justify-center gap-3">
+            {[
+              { label: "20 PDF tools", color: "text-blue-400 bg-blue-400/8 border-blue-400/20" },
+              { label: "0 bytes uploaded", color: "text-emerald-400 bg-emerald-400/8 border-emerald-400/20" },
+              { label: "100% free", color: "text-violet-400 bg-violet-400/8 border-violet-400/20" },
+              { label: "No account needed", color: "text-amber-400 bg-amber-400/8 border-amber-400/20" },
+            ].map(({ label, color }) => (
+              <span key={label} className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${color}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Why block ─────────────────────────────────────────────── */}
+      <section className="px-6 pb-16">
+        <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              icon: ShieldCheck,
+              title: "Completely private",
+              body: "Every operation runs in your browser using WebAssembly. Your files never touch a server.",
+              accent: "text-emerald-400 bg-emerald-400/10",
+            },
+            {
+              icon: Zap,
+              title: "Near-instant processing",
+              body: "Powered by pdfcpu (WebAssembly) and pdf-lib. No round-trips, no queues.",
+              accent: "text-amber-400 bg-amber-400/10",
+            },
+            {
+              icon: Monitor,
+              title: "Works everywhere",
+              body: "Any modern browser on any device. No plugins, no apps, no installation required.",
+              accent: "text-blue-400 bg-blue-400/10",
+            },
+          ].map(({ icon: Icon, title, body, accent }) => (
+            <div key={title}
+              className="relative flex flex-col gap-4 p-5 rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden">
+              {/* subtle corner glow */}
+              <div aria-hidden className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{title}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Tool categories ───────────────────────────────────────── */}
+      <section className="px-6 pb-24">
+        <div className="mx-auto max-w-5xl space-y-14">
+
+          <div className="text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Pick a tool</h2>
+            <p className="text-muted-foreground text-sm mt-2">All 20 tools are free, instant, and run in your browser</p>
+          </div>
+
+          {categories.map(({ name, accent, tools }) => (
+            <div key={name}>
+              {/* Category header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className={`h-1.5 w-6 rounded-full bg-gradient-to-r ${accent}`} />
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{name}</h3>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              {/* Tool cards grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {tools.map(({ icon: Icon, title, desc, href, tw, featured }) => {
+                  const [textCol, bgCol] = tw.split(" ");
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={[
+                        "group relative flex items-start gap-4 p-5 rounded-2xl border transition-all duration-200",
+                        "hover:-translate-y-1 hover:shadow-lg",
+                        featured
+                          ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:shadow-primary/10"
+                          : "border-border bg-card hover:border-muted-foreground/25 hover:shadow-black/10",
+                      ].join(" ")}
+                    >
+                      {featured && (
+                        <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/12 px-2 py-0.5 rounded-full">
+                          <Sparkles className="h-2.5 w-2.5" /> Featured
+                        </span>
+                      )}
+                      {/* Icon */}
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${bgCol}`}>
+                        <Icon className={`h-5 w-5 ${textCol}`} />
+                      </div>
+                      {/* Text */}
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-tight">
+                          {title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{desc}</p>
+                      </div>
+                      {/* Arrow */}
+                      <ArrowRight className={`flex-shrink-0 h-4 w-4 mt-0.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all ${textCol}`} />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Bottom CTA banner ─────────────────────────────────────── */}
+      <section className="px-6 pb-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-violet-500/10 p-10 text-center">
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-primary/20 blur-3xl" />
+            </div>
+            <Sparkles className="h-8 w-8 text-primary mx-auto mb-4 opacity-80" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">Ready to get started?</h2>
+            <p className="text-muted-foreground text-sm max-w-md mx-auto mb-8">
+              No sign-up required. Just open a tool and start working — your files stay on your device.
+            </p>
+            <Link href="/edit"
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 hover:-translate-y-0.5">
+              <PenTool className="h-4 w-4" />
+              Open PDF Editor — it's free
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Footer ────────────────────────────────────────────────── */}
+      <footer className="border-t border-border px-6 py-8">
+        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            PDF Studio &mdash; 100% client-side processing. Your files never leave your device.
+          </p>
+          <div className="flex items-center gap-4">
+            {[
+              ["Merge", "/merge"], ["Split", "/split"], ["Compress", "/compress"],
+              ["Unlock", "/unlock"], ["Edit", "/edit"],
+            ].map(([label, href]) => (
+              <Link key={href} href={href} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
