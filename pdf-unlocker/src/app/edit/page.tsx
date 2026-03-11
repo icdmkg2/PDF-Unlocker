@@ -71,7 +71,10 @@ export default function EditPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<HTMLCanvasElement>(null);
+  // A stable div that stays absolutely positioned over the PDF canvas.
+  // Fabric creates fresh <canvas> elements inside this div each time a page loads,
+  // avoiding all the DOM confusion from Fabric's own wrapping / unwrapping logic.
+  const fabricContainerRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fabricRef = useRef<any>(null);
@@ -117,29 +120,25 @@ export default function EditPage() {
   }, []);
 
   const initFabricForPage = useCallback(async (pageNum: number, width: number, height: number) => {
-    if (!fabricCanvasRef.current) return;
+    if (!fabricContainerRef.current) return;
+    // Dispose old canvas
     if (fabricRef.current) { fabricRef.current.dispose(); fabricRef.current = null; }
+    // Wipe the container so no stale Fabric DOM remains
+    fabricContainerRef.current.innerHTML = "";
+    // Create a fresh <canvas> inside the stable container div.
+    // fabricContainerRef is `position:absolute; inset:0` so it already perfectly
+    // overlays bgCanvasRef — no DOM fixups needed.
+    const canvasEl = document.createElement("canvas");
+    fabricContainerRef.current.appendChild(canvasEl);
     const { Canvas, PencilBrush } = await import("fabric");
-    const fc = new Canvas(fabricCanvasRef.current, { width, height, isDrawingMode: false, selection: true });
+    const fc = new Canvas(canvasEl, { width, height, isDrawingMode: false, selection: true });
     fc.freeDrawingBrush = new PencilBrush(fc);
     fc.freeDrawingBrush.color = color;
     fc.freeDrawingBrush.width = strokeWidth;
     const saved = pageStatesRef.current[pageNum];
     if (saved?.json) { await fc.loadFromJSON(saved.json); fc.renderAll(); }
     fabricRef.current = fc;
-
-    // Fabric v6 wraps the canvas in a div.canvas-container with position:relative,
-    // which puts it in normal document flow below the PDF canvas instead of overlaying it.
-    // Force it to be absolutely positioned so it sits on top of bgCanvasRef.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wrapperEl = (fc as any).wrapperEl as HTMLElement | undefined;
-    if (wrapperEl) {
-      wrapperEl.style.position = "absolute";
-      wrapperEl.style.top = "0";
-      wrapperEl.style.left = "0";
-    }
-
-    // Increment version so the mouse-handler effect re-runs with the new canvas instance
+    // Increment version so the mouse-handler AND tool-apply effects re-run
     setFabricVersion((v) => v + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -237,8 +236,8 @@ export default function EditPage() {
     await loadPage(i, next);
   }, [loadPage]);
 
-  // Apply tool settings whenever they change
-  useEffect(() => { applyActiveTool(activeTool, color, strokeWidth); }, [activeTool, color, strokeWidth, applyActiveTool]);
+  // Apply tool settings whenever they change OR a new Fabric canvas is created
+  useEffect(() => { applyActiveTool(activeTool, color, strokeWidth); }, [fabricVersion, activeTool, color, strokeWidth, applyActiveTool]);
 
   // Mouse handler — depends on fabricVersion so it re-runs each time a new canvas is created
   useEffect(() => {
@@ -541,8 +540,10 @@ export default function EditPage() {
 
         <div ref={wrapperRef} style={{ display: isLoadingPdf ? "none" : "inline-block" }}
           className="relative shadow-[0_2px_16px_rgba(0,0,0,0.25)] bg-white">
+          {/* PDF background */}
           <canvas ref={bgCanvasRef} className="block" />
-          <canvas ref={fabricCanvasRef} />
+          {/* Fabric annotation layer — always on top, same size as bgCanvasRef */}
+          <div ref={fabricContainerRef} className="absolute inset-0" />
         </div>
 
         {totalPages > 1 && (
