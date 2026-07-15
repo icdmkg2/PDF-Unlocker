@@ -1,25 +1,54 @@
 import { type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ToolLayoutProps {
   title: string;
   description: string;
   icon: LucideIcon;
   children: React.ReactNode;
+  wide?: boolean;
+  fullWidth?: boolean;
+  notice?: React.ReactNode;
 }
 
-export function ToolLayout({ title, description, icon: Icon, children }: ToolLayoutProps) {
+export function ToolLayout({
+  title,
+  description,
+  icon: Icon,
+  children,
+  wide = false,
+  fullWidth = false,
+  notice,
+}: ToolLayoutProps) {
   return (
     <div className="min-h-full p-6 lg:p-10">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-primary/15 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Icon className="h-5 w-5 text-primary" />
+      <div
+        className={cn(
+          "mx-auto",
+          fullWidth ? "max-w-none" : wide ? "max-w-5xl" : "max-w-2xl"
+        )}
+      >
+        <div className="mb-7 flex items-start gap-3.5">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md border border-border bg-card">
+            <Icon className="h-5 w-5 text-foreground" />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-            <p className="text-sm text-muted-foreground">{description}</p>
+          <div className="min-w-0 pt-0.5">
+            <p className="font-label mb-1 text-muted-foreground">Tool</p>
+            <h1 className="font-display text-2xl tracking-tight text-foreground sm:text-[1.75rem]">
+              {title}
+            </h1>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              {description}
+            </p>
           </div>
         </div>
+
+        {notice && (
+          <div className="mb-6 rounded-lg border border-[#3d3420] bg-[#1a1610] px-4 py-3 text-xs leading-relaxed text-[#d4c4a0]">
+            {notice}
+          </div>
+        )}
+
         {children}
       </div>
     </div>

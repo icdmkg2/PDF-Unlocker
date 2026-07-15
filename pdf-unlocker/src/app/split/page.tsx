@@ -6,9 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { Scissors, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { splitPDF, parseRanges } from "@/lib/pdf-split";
+import { EncryptedNotice } from "@/components/encrypted-notice";
+import { Scissors, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Archive } from "lucide-react";
+import { splitPDF, parseRanges, splitToZip } from "@/lib/pdf-split";
 import { PDFDocument } from "pdf-lib";
+import { downloadBlob, revokeUrl } from "@/lib/pdf-utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function SplitPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -25,7 +28,6 @@ export default function SplitPage() {
     setError(null);
     setResults(null);
     setRangeInput("");
-    // get page count
     try {
       const bytes = await f.arrayBuffer();
       const doc = await PDFDocument.load(bytes);
@@ -56,6 +58,7 @@ export default function SplitPage() {
       }
       const parts = await splitPDF(file, ranges);
       setResults(parts);
+      await addHistoryEntry({ tool: "Split", fileName: file.name, size: file.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Split failed.");
     } finally {
@@ -66,14 +69,21 @@ export default function SplitPage() {
   const downloadAll = () => {
     if (!results) return;
     results.forEach(({ bytes, name }) => {
-      const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" }), name);
     });
+  };
+
+  const downloadZip = async () => {
+    if (!results) return;
+    setIsLoading(true);
+    try {
+      const zip = await splitToZip(results);
+      downloadBlob(zip, (file?.name.replace(/\.pdf$/i, "") || "split") + "_pages.zip");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ZIP failed.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const reset = () => {
@@ -98,6 +108,7 @@ export default function SplitPage() {
           onRemove={handleRemove}
           label="Drop your PDF here"
         />
+        <EncryptedNotice file={file} />
 
         {pageCount !== null && (
           <p className="text-xs text-muted-foreground">
@@ -148,8 +159,11 @@ export default function SplitPage() {
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
               Split into {results.length} file{results.length !== 1 ? "s" : ""}!
             </div>
-            <Button onClick={downloadAll} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download All ({results.length} files)
+            <Button onClick={downloadZip} disabled={isLoading} className="w-full">
+              <Archive className="h-4 w-4 mr-2" /> Download ZIP ({results.length} files)
+            </Button>
+            <Button onClick={downloadAll} variant="outline" className="w-full">
+              <Download className="h-4 w-4 mr-2" /> Download each file
             </Button>
           </div>
         )}

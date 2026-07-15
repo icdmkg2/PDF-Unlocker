@@ -12,6 +12,7 @@ import { protectPDF } from "@/lib/pdf-protect";
 export default function ProtectPage() {
   const [file, setFile] = useState<File | null>(null);
   const [userPw, setUserPw] = useState("");
+  const [userPwConfirm, setUserPwConfirm] = useState("");
   const [ownerPw, setOwnerPw] = useState("");
   const [showUser, setShowUser] = useState(false);
   const [showOwner, setShowOwner] = useState(false);
@@ -34,6 +35,10 @@ export default function ProtectPage() {
 
   const handleProtect = async () => {
     if (!file || !userPw) return;
+    if (userPw !== userPwConfirm) {
+      setError("User passwords do not match.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setProgress("Loading pdfcpu (first time may take a moment)...");
@@ -62,6 +67,7 @@ export default function ProtectPage() {
   const reset = () => {
     setFile(null);
     setUserPw("");
+    setUserPwConfirm("");
     setOwnerPw("");
     setError(null);
     setResultUrl(null);
@@ -102,6 +108,18 @@ export default function ProtectPage() {
               {showUser ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+        </div>
+
+        {/* Confirm user password */}
+        <div className="space-y-1.5">
+          <Label htmlFor="userPwConfirm">Confirm User Password</Label>
+          <Input
+            id="userPwConfirm"
+            type="password"
+            placeholder="Re-enter user password"
+            value={userPwConfirm}
+            onChange={(e) => setUserPwConfirm(e.target.value)}
+          />
         </div>
 
         {/* Owner password */}

@@ -50,7 +50,6 @@ export function PdfDropzone({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
     if (selected.length) onFiles(selected);
-    // reset so same file can be re-selected
     e.target.value = "";
   };
 
@@ -58,15 +57,14 @@ export function PdfDropzone({
 
   return (
     <div className="space-y-3">
-      {/* Drop zone */}
       <div
         className={cn(
-          "relative border-2 border-dashed rounded-lg p-8 transition-colors cursor-pointer text-center",
+          "relative cursor-pointer rounded-lg border border-dashed p-8 text-center transition-colors",
           isDragging
-            ? "border-primary bg-primary/10"
+            ? "border-primary/50 bg-primary/5"
             : hasFiles
-            ? "border-primary/40 bg-primary/5 hover:border-primary/60"
-            : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/40"
+              ? "border-border bg-card hover:border-muted-foreground/40"
+              : "border-border bg-card/40 hover:border-muted-foreground/40 hover:bg-card/70"
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -83,28 +81,29 @@ export function PdfDropzone({
         />
         <div className="flex flex-col items-center gap-2">
           {hasFiles ? (
-            <CheckCircle2 className="h-8 w-8 text-primary" />
+            <CheckCircle2 className="h-7 w-7 text-emerald-500/90" />
           ) : (
-            <UploadCloud className="h-8 w-8 text-muted-foreground" />
+            <UploadCloud className="h-7 w-7 text-muted-foreground" />
           )}
           <p className="text-sm font-medium text-foreground">
             {label ?? (hasFiles ? "Add more files" : "Drop PDF here")}
           </p>
-          <p className="text-xs text-muted-foreground">or click to browse</p>
+          <p className="font-label text-[9px] text-muted-foreground">
+            or click to browse
+          </p>
         </div>
       </div>
 
-      {/* File list */}
       {hasFiles && (
         <ul className="space-y-1.5">
           {files.map((f, i) => (
             <li
               key={i}
-              className="flex items-center justify-between gap-3 px-3 py-2 bg-muted rounded-md text-sm"
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm"
             >
               <span className="truncate text-foreground">{f.name}</span>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-muted-foreground text-xs">
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <span className="font-mono text-[10px] text-muted-foreground">
                   {(f.size / 1024 / 1024).toFixed(2)} MB
                 </span>
                 {onRemove && (
@@ -113,7 +112,7 @@ export function PdfDropzone({
                       e.stopPropagation();
                       onRemove(i);
                     }}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    className="text-muted-foreground transition-colors hover:text-destructive"
                     aria-label="Remove file"
                   >
                     <X className="h-3.5 w-3.5" />

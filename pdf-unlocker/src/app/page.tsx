@@ -1,275 +1,276 @@
 import Link from "next/link";
 import {
   GitMerge, Scissors, LayoutGrid, Minimize2, Wrench,
-  ImageIcon, Globe, Camera,
-  Images, Archive,
+  ImageIcon, Globe, Camera, Images, Archive,
   PenTool, RotateCw, Hash, Droplets, Crop,
   Unlock, Lock, PenLine, EyeOff, GitCompare,
-  ArrowRight, ShieldCheck, Zap, Monitor, Sparkles,
+  ArrowUpRight, FileType, Tags, ClipboardList,
 } from "lucide-react";
+import { Logo } from "@/components/logo";
 
-const categories = [
-  {
-    name: "Organize & Optimize",
-    accent: "from-blue-500 to-indigo-500",
-    tools: [
-      { icon: GitMerge,  title: "Merge PDF",     desc: "Combine multiple PDFs into one",         href: "/merge",       tw: "text-blue-400   bg-blue-400/10"   },
-      { icon: Scissors,  title: "Split PDF",     desc: "Extract pages into separate files",      href: "/split",       tw: "text-indigo-400 bg-indigo-400/10" },
-      { icon: LayoutGrid,title: "Organize PDF",  desc: "Drag-and-drop page reordering",          href: "/organize",    tw: "text-violet-400 bg-violet-400/10" },
-      { icon: Minimize2, title: "Compress PDF",  desc: "Reduce size without losing quality",     href: "/compress",    tw: "text-sky-400    bg-sky-400/10"    },
-      { icon: Wrench,    title: "Repair PDF",    desc: "Fix corrupted or damaged files",         href: "/repair",      tw: "text-cyan-400   bg-cyan-400/10"   },
-    ],
-  },
-  {
-    name: "Convert TO PDF",
-    accent: "from-violet-500 to-purple-500",
-    tools: [
-      { icon: ImageIcon, title: "JPG to PDF",    desc: "Images to a single PDF document",       href: "/jpg-to-pdf",  tw: "text-purple-400 bg-purple-400/10" },
-      { icon: Globe,     title: "HTML to PDF",   desc: "Render HTML content as a PDF",          href: "/html-to-pdf", tw: "text-fuchsia-400 bg-fuchsia-400/10"},
-      { icon: Camera,    title: "Scan to PDF",   desc: "Camera or QR code scan to PDF",         href: "/scan",        tw: "text-pink-400   bg-pink-400/10"   },
-    ],
-  },
-  {
-    name: "Convert FROM PDF",
-    accent: "from-emerald-500 to-teal-500",
-    tools: [
-      { icon: Images,    title: "PDF to JPG",    desc: "Export pages as JPEG images or ZIP",    href: "/pdf-to-jpg",  tw: "text-emerald-400 bg-emerald-400/10"},
-      { icon: Archive,   title: "PDF to PDF/A",  desc: "Archival format with XMP metadata",     href: "/pdf-to-pdfa", tw: "text-teal-400   bg-teal-400/10"   },
-    ],
-  },
-  {
-    name: "Edit & Annotate",
-    accent: "from-orange-500 to-amber-500",
-    tools: [
-      { icon: PenTool,   title: "Edit PDF",      desc: "Draw, annotate, shapes, signatures",    href: "/edit",        tw: "text-orange-400 bg-orange-400/10",  featured: true },
-      { icon: RotateCw,  title: "Rotate PDF",    desc: "Fix page orientation instantly",        href: "/rotate",      tw: "text-amber-400  bg-amber-400/10"  },
-      { icon: Hash,      title: "Page Numbers",  desc: "Stamp numbers at any position",         href: "/page-numbers",tw: "text-yellow-400 bg-yellow-400/10" },
-      { icon: Droplets,  title: "Watermark",     desc: "Center or tiled text overlay",          href: "/watermark",   tw: "text-lime-400   bg-lime-400/10"   },
-      { icon: Crop,      title: "Crop PDF",      desc: "Trim margins with mm precision",        href: "/crop",        tw: "text-green-400  bg-green-400/10"  },
-    ],
-  },
-  {
-    name: "Security & Signatures",
-    accent: "from-rose-500 to-red-500",
-    tools: [
-      { icon: Unlock,    title: "Unlock PDF",    desc: "Remove password protection",            href: "/unlock",      tw: "text-rose-400   bg-rose-400/10"   },
-      { icon: Lock,      title: "Protect PDF",   desc: "Encrypt with user & owner passwords",   href: "/protect",     tw: "text-red-400    bg-red-400/10"    },
-      { icon: PenLine,   title: "Sign PDF",      desc: "Draw and embed your signature",         href: "/sign",        tw: "text-pink-400   bg-pink-400/10"   },
-      { icon: EyeOff,    title: "Redact PDF",    desc: "Permanently black out sensitive text",  href: "/redact",      tw: "text-orange-400 bg-orange-400/10" },
-      { icon: GitCompare,title: "Compare PDF",   desc: "Visual + text diff between two files",  href: "/compare",     tw: "text-violet-400 bg-violet-400/10" },
-    ],
-  },
+const TOOL_COUNT = 24;
+
+const tools = [
+  { icon: PenTool, title: "Edit", desc: "Annotate, draw, sign on canvas", href: "/edit", tone: "#f59e0b" },
+  { icon: GitMerge, title: "Merge", desc: "Combine PDFs into one file", href: "/merge", tone: "#60a5fa" },
+  { icon: Scissors, title: "Split", desc: "Extract pages or ranges", href: "/split", tone: "#818cf8" },
+  { icon: Minimize2, title: "Compress", desc: "Shrink size (lossy flatten)", href: "/compress", tone: "#38bdf8" },
+  { icon: Unlock, title: "Unlock", desc: "Decrypt password PDFs", href: "/unlock", tone: "#fb7185" },
+  { icon: Lock, title: "Protect", desc: "Encrypt with passwords", href: "/protect", tone: "#f87171" },
+  { icon: EyeOff, title: "Redact", desc: "Burn out sensitive content", href: "/redact", tone: "#fb923c" },
+  { icon: LayoutGrid, title: "Organize", desc: "Reorder and delete pages", href: "/organize", tone: "#a78bfa" },
+  { icon: RotateCw, title: "Rotate", desc: "Fix page orientation", href: "/rotate", tone: "#fbbf24" },
+  { icon: Hash, title: "Page numbers", desc: "Stamp numbers anywhere", href: "/page-numbers", tone: "#facc15" },
+  { icon: Droplets, title: "Watermark", desc: "Text or image overlay", href: "/watermark", tone: "#a3e635" },
+  { icon: Crop, title: "Crop", desc: "Hard or soft trim", href: "/crop", tone: "#4ade80" },
+  { icon: ImageIcon, title: "JPG → PDF", desc: "Images into a document", href: "/jpg-to-pdf", tone: "#c084fc" },
+  { icon: Images, title: "PDF → JPG", desc: "Pages as images / ZIP", href: "/pdf-to-jpg", tone: "#34d399" },
+  { icon: FileType, title: "Extract text", desc: "Dump text to .txt", href: "/extract-text", tone: "#4ade80" },
+  { icon: Images, title: "Extract images", desc: "Pages as PNG ZIP", href: "/extract-images", tone: "#2dd4bf" },
+  { icon: Camera, title: "Scan", desc: "Camera or photos to PDF", href: "/scan", tone: "#f472b6" },
+  { icon: Globe, title: "HTML → PDF", desc: "Render HTML to pages", href: "/html-to-pdf", tone: "#e879f9" },
+  { icon: PenLine, title: "Sign", desc: "Stamp a drawn signature", href: "/sign", tone: "#f9a8d4" },
+  { icon: ClipboardList, title: "Forms", desc: "Fill and flatten fields", href: "/forms", tone: "#7dd3fc" },
+  { icon: Tags, title: "Metadata", desc: "Title, author, keywords", href: "/metadata", tone: "#93c5fd" },
+  { icon: GitCompare, title: "Compare", desc: "Visual / pixel / text diff", href: "/compare", tone: "#c4b5fd" },
+  { icon: Wrench, title: "Repair", desc: "Rebuild broken structure", href: "/repair", tone: "#67e8f9" },
+  { icon: Archive, title: "PDF/A meta", desc: "Experimental XMP tags", href: "/pdf-to-pdfa", tone: "#5eead4" },
 ];
 
 export default function LandingPage() {
   return (
-    <div className="min-h-full bg-background">
+    <div className="min-h-full bg-background text-foreground">
+      <style>{`
+        .paper-stack {
+          box-shadow:
+            12px 12px 0 -1px #1a1a1a,
+            12px 12px 0 0 #2a2a2a,
+            24px 24px 0 -1px #141414,
+            24px 24px 0 0 #222;
+        }
+        .tool-card:hover {
+          background: #141414;
+          border-color: #333;
+        }
+        .tool-card:hover .tool-arrow {
+          opacity: 1;
+          transform: translate(0, 0);
+        }
+      `}</style>
 
-      {/* ─── Hero ──────────────────────────────────────────────────── */}
-      <section className="relative isolate overflow-hidden px-6 pt-20 pb-16 text-center">
-        {/* Background orbs */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/20 blur-[128px] opacity-50" />
-          <div className="absolute top-1/2 left-1/4 w-72 h-72 rounded-full bg-blue-600/20 blur-[96px] opacity-40" />
-          <div className="absolute top-1/3 right-1/4 w-64 h-64 rounded-full bg-violet-600/20 blur-[96px] opacity-35" />
-        </div>
+      <div
+        className="pointer-events-none fixed inset-0 opacity-50"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 15% 0%, rgba(90,70,40,0.16), transparent 55%), radial-gradient(ellipse 50% 40% at 90% 10%, rgba(40,55,80,0.16), transparent 50%)",
+        }}
+      />
 
-        <div className="mx-auto max-w-4xl">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-8 rounded-full border border-primary/25 bg-primary/8 text-primary text-xs font-medium shadow-sm shadow-primary/10">
-            <Sparkles className="h-3 w-3" />
-            20 tools &bull; 100% client-side &bull; No uploads ever
+      <div className="relative">
+        <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-8">
+          <Logo size={32} subtitle={`Local · ${TOOL_COUNT} tools`} />
+          <nav className="flex items-center gap-5 text-sm text-muted-foreground">
+            <a href="#tools" className="transition hover:text-foreground">Tools</a>
+            <Link
+              href="/edit"
+              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold tracking-wide text-primary-foreground transition hover:bg-white"
+            >
+              Open editor
+            </Link>
+          </nav>
+        </header>
+
+        <section className="mx-auto grid max-w-6xl gap-12 px-6 pb-16 pt-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-8 lg:pb-24 lg:pt-12">
+          <div>
+            <p className="font-label mb-6 text-muted-foreground">
+              Browser-native PDF workbench
+            </p>
+            <h1 className="font-display text-[2.75rem] leading-[1.05] tracking-tight sm:text-6xl lg:text-[4.25rem]">
+              Work on PDFs
+              <br />
+              <span className="text-muted-foreground">without sending</span>
+              <br />
+              them anywhere.
+            </h1>
+            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+              Merge, edit, unlock, redact, compress - all on-device with WebAssembly.
+              No accounts. No cloud processing. No “trust us, we delete it later.”
+            </p>
+
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Link
+                href="/edit"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-white"
+              >
+                Start editing
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/merge"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-transparent px-6 py-3 text-sm font-medium transition hover:bg-card"
+              >
+                Merge files
+              </Link>
+            </div>
+
+            <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-border pt-8">
+              {[
+                { k: "Tools", v: String(TOOL_COUNT) },
+                { k: "Upload", v: "Never" },
+                { k: "Price", v: "Free" },
+              ].map((item) => (
+                <div key={item.k}>
+                  <dt className="font-label text-muted-foreground">{item.k}</dt>
+                  <dd className="font-display mt-1 text-2xl sm:text-3xl">{item.v}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
-          {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] text-foreground">
-            The PDF toolkit
-            <br />
-            <span className="bg-gradient-to-r from-primary via-blue-400 to-violet-400 bg-clip-text text-transparent">
-              that respects you
-            </span>
-          </h1>
-
-          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Merge, split, compress, annotate, protect — everything you need, running entirely in your browser.
-            No accounts, no subscriptions, no file uploads.
-          </p>
-
-          {/* CTAs */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/edit"
-              className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5">
-              <PenTool className="h-4 w-4" />
-              Open PDF Editor
-              <ArrowRight className="h-3.5 w-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <Link href="/merge"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card text-foreground text-sm font-semibold hover:bg-muted transition-all border border-border hover:-translate-y-0.5">
-              <GitMerge className="h-4 w-4" />
-              Merge PDFs
-            </Link>
-            <Link href="/compress"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-card text-foreground text-sm font-semibold hover:bg-muted transition-all border border-border hover:-translate-y-0.5">
-              <Minimize2 className="h-4 w-4" />
-              Compress PDF
-            </Link>
+          <div className="relative mx-auto w-full max-w-sm lg:max-w-none">
+            <div className="paper-stack relative aspect-[4/5] overflow-hidden rounded-sm border border-border bg-card">
+              <div className="absolute inset-4 rounded-sm border border-border bg-[#1c1c1c] p-6 sm:inset-5 sm:p-8">
+                <div className="mb-6 flex items-center justify-between">
+                  <span className="font-label text-muted-foreground">Doc · 01</span>
+                  <span className="font-label text-emerald-500/80">Local</span>
+                </div>
+                <div className="font-display space-y-3">
+                  <p className="text-2xl leading-tight sm:text-3xl">Your file</p>
+                  <p className="text-2xl leading-tight text-muted-foreground sm:text-3xl">stays here.</p>
+                </div>
+                <div className="mt-8 space-y-2.5">
+                  {[100, 88, 72, 92, 60].map((w, i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 rounded-full bg-border"
+                      style={{ width: `${w}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="absolute bottom-6 left-6 right-6 sm:bottom-8 sm:left-8 sm:right-8">
+                  <div className="flex items-center justify-between border-t border-border pt-4">
+                    <span className="font-label text-muted-foreground">WASM pipeline</span>
+                    <span className="font-label text-muted-foreground">0 bytes out</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="font-label mt-4 text-center text-muted-foreground">
+              Illustration · not a live preview
+            </p>
           </div>
+        </section>
 
-          {/* Stat pills */}
-          <div className="mt-12 flex flex-wrap justify-center gap-3">
+        <section className="border-y border-border bg-[#0f0f0f]">
+          <div className="mx-auto grid max-w-6xl gap-0 sm:grid-cols-3">
             {[
-              { label: "20 PDF tools", color: "text-blue-400 bg-blue-400/8 border-blue-400/20" },
-              { label: "0 bytes uploaded", color: "text-emerald-400 bg-emerald-400/8 border-emerald-400/20" },
-              { label: "100% free", color: "text-violet-400 bg-violet-400/8 border-violet-400/20" },
-              { label: "No account needed", color: "text-amber-400 bg-amber-400/8 border-amber-400/20" },
-            ].map(({ label, color }) => (
-              <span key={label} className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${color}`}>
-                {label}
-              </span>
+              {
+                n: "01",
+                title: "On-device engines",
+                body: "pdf-lib, pdf.js, and pdfcpu WASM run in this tab - not on our servers.",
+              },
+              {
+                n: "02",
+                title: "No account wall",
+                body: "Open a tool, drop a PDF, download. No signup, trial, or watermark.",
+              },
+              {
+                n: "03",
+                title: "Honest tools",
+                body: "When a tool flattens pages (compress, redact), the UI says so.",
+              },
+            ].map((item, i) => (
+              <div
+                key={item.n}
+                className={`px-6 py-10 sm:px-8 ${i < 2 ? "border-b border-border sm:border-b-0 sm:border-r" : ""}`}
+              >
+                <p className="font-label text-muted-foreground">{item.n}</p>
+                <h2 className="font-display mt-3 text-2xl">{item.title}</h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+              </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ─── Why block ─────────────────────────────────────────────── */}
-      <section className="px-6 pb-16">
-        <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            {
-              icon: ShieldCheck,
-              title: "Completely private",
-              body: "Every operation runs in your browser using WebAssembly. Your files never touch a server.",
-              accent: "text-emerald-400 bg-emerald-400/10",
-            },
-            {
-              icon: Zap,
-              title: "Near-instant processing",
-              body: "Powered by pdfcpu (WebAssembly) and pdf-lib. No round-trips, no queues.",
-              accent: "text-amber-400 bg-amber-400/10",
-            },
-            {
-              icon: Monitor,
-              title: "Works everywhere",
-              body: "Any modern browser on any device. No plugins, no apps, no installation required.",
-              accent: "text-blue-400 bg-blue-400/10",
-            },
-          ].map(({ icon: Icon, title, body, accent }) => (
-            <div key={title}
-              className="relative flex flex-col gap-4 p-5 rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden">
-              {/* subtle corner glow */}
-              <div aria-hidden className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent}`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{title}</p>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{body}</p>
-              </div>
+        <section id="tools" className="mx-auto max-w-6xl px-6 py-16 sm:px-8 sm:py-20">
+          <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-label text-muted-foreground">Catalog</p>
+              <h2 className="font-display mt-2 text-3xl sm:text-4xl">
+                Every tool, one place
+              </h2>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Tool categories ───────────────────────────────────────── */}
-      <section className="px-6 pb-24">
-        <div className="mx-auto max-w-5xl space-y-14">
-
-          <div className="text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Pick a tool</h2>
-            <p className="text-muted-foreground text-sm mt-2">All 20 tools are free, instant, and run in your browser</p>
-          </div>
-
-          {categories.map(({ name, accent, tools }) => (
-            <div key={name}>
-              {/* Category header */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className={`h-1.5 w-6 rounded-full bg-gradient-to-r ${accent}`} />
-                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{name}</h3>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-
-              {/* Tool cards grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {tools.map(({ icon: Icon, title, desc, href, tw, featured }) => {
-                  const [textCol, bgCol] = tw.split(" ");
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      className={[
-                        "group relative flex items-start gap-4 p-5 rounded-2xl border transition-all duration-200",
-                        "hover:-translate-y-1 hover:shadow-lg",
-                        featured
-                          ? "border-primary/30 bg-primary/5 hover:border-primary/50 hover:shadow-primary/10"
-                          : "border-border bg-card hover:border-muted-foreground/25 hover:shadow-black/10",
-                      ].join(" ")}
-                    >
-                      {featured && (
-                        <span className="absolute top-3 right-3 inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/12 px-2 py-0.5 rounded-full">
-                          <Sparkles className="h-2.5 w-2.5" /> Featured
-                        </span>
-                      )}
-                      {/* Icon */}
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${bgCol}`}>
-                        <Icon className={`h-5 w-5 ${textCol}`} />
-                      </div>
-                      {/* Text */}
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-tight">
-                          {title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-2">{desc}</p>
-                      </div>
-                      {/* Arrow */}
-                      <ArrowRight className={`flex-shrink-0 h-4 w-4 mt-0.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all ${textCol}`} />
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ─── Bottom CTA banner ─────────────────────────────────────── */}
-      <section className="px-6 pb-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-violet-500/10 p-10 text-center">
-            <div aria-hidden className="pointer-events-none absolute inset-0">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-primary/20 blur-3xl" />
-            </div>
-            <Sparkles className="h-8 w-8 text-primary mx-auto mb-4 opacity-80" />
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">Ready to get started?</h2>
-            <p className="text-muted-foreground text-sm max-w-md mx-auto mb-8">
-              No sign-up required. Just open a tool and start working — your files stay on your device.
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Pick what you need. Each opens a focused workspace in the sidebar app.
             </p>
-            <Link href="/edit"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all shadow-lg shadow-primary/30 hover:-translate-y-0.5">
-              <PenTool className="h-4 w-4" />
-              Open PDF Editor — it's free
-            </Link>
           </div>
-        </div>
-      </section>
 
-      {/* ─── Footer ────────────────────────────────────────────────── */}
-      <footer className="border-t border-border px-6 py-8">
-        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">
-            PDF Studio &mdash; 100% client-side processing. Your files never leave your device.
-          </p>
-          <div className="flex items-center gap-4">
-            {[
-              ["Merge", "/merge"], ["Split", "/split"], ["Compress", "/compress"],
-              ["Unlock", "/unlock"], ["Edit", "/edit"],
-            ].map(([label, href]) => (
-              <Link key={href} href={href} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                {label}
+          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+            {tools.map(({ icon: Icon, title, desc, href, tone }) => (
+              <Link
+                key={href}
+                href={href}
+                className="tool-card group relative flex items-start gap-4 bg-background p-5 transition-colors sm:p-6"
+              >
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border"
+                  style={{ color: tone, background: `${tone}14` }}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-medium tracking-tight">{title}</span>
+                    <ArrowUpRight className="tool-arrow h-3.5 w-3.5 text-muted-foreground opacity-0 -translate-x-0.5 translate-y-0.5 transition-all" />
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{desc}</span>
+                </span>
               </Link>
             ))}
           </div>
-        </div>
-      </footer>
+        </section>
+
+        <section className="border-t border-border">
+          <div className="mx-auto max-w-6xl px-6 py-16 sm:px-8 sm:py-20">
+            <div className="max-w-2xl">
+              <h2 className="font-display text-3xl leading-tight sm:text-5xl">
+                Close the tab.
+                <br />
+                <span className="text-muted-foreground">Nothing was left on a server.</span>
+              </h2>
+              <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                That is the entire product thesis. Tools should be powerful without
+                turning your documents into someone else&apos;s data problem.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/edit"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-white"
+                >
+                  Open editor
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/unlock"
+                  className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-medium transition hover:bg-card"
+                >
+                  Unlock a PDF
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="border-t border-border">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <Logo size={28} subtitle="On-device only" />
+            <p className="font-label text-muted-foreground">
+              No trackers · No uploads · No accounts
+            </p>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

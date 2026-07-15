@@ -4,9 +4,16 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
+import { EncryptedNotice } from "@/components/encrypted-notice";
 import { Archive, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
+import { revokeUrl } from "@/lib/pdf-utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
+/**
+ * Experimental: adds PDF/A-2b identification XMP metadata.
+ * This is NOT a full PDF/A conversion (no ICC profile, font subsetting, or validation).
+ */
 export default function PdfToPdfAPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -14,16 +21,18 @@ export default function PdfToPdfAPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
   const handleFiles = useCallback((files: File[]) => {
+    revokeUrl(resultUrl);
     setFile(files[0]);
     setError(null);
     setResultUrl(null);
-  }, []);
+  }, [resultUrl]);
 
   const handleRemove = useCallback(() => {
+    revokeUrl(resultUrl);
     setFile(null);
     setError(null);
     setResultUrl(null);
-  }, []);
+  }, [resultUrl]);
 
   const handleConvert = async () => {
     if (!file) return;
@@ -35,8 +44,7 @@ export default function PdfToPdfAPage() {
 
       doc.setTitle(file.name.replace(/\.pdf$/i, ""));
       doc.setCreator("PDF Studio");
-      doc.setProducer("PDF Studio — pdf-lib");
-
+      doc.setProducer("PDF Studio - experimental PDF/A metadata");
       const now = new Date();
       doc.setCreationDate(now);
       doc.setModificationDate(now);
@@ -60,8 +68,9 @@ export default function PdfToPdfAPage() {
       doc.catalog.set(doc.context.obj("Metadata"), xmpRef);
 
       const saved = await doc.save();
-      const blob = new Blob([saved as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      setResultUrl(URL.createObjectURL(blob));
+      revokeUrl(resultUrl);
+      setResultUrl(URL.createObjectURL(new Blob([saved as Uint8Array<ArrayBuffer>], { type: "application/pdf" })));
+      await addHistoryEntry({ tool: "PDF/A metadata", fileName: file.name, size: file.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
     } finally {
@@ -73,21 +82,18 @@ export default function PdfToPdfAPage() {
     if (!resultUrl || !file) return;
     const a = document.createElement("a");
     a.href = resultUrl;
-    a.download = file.name.replace(/\.pdf$/i, "_pdfa.pdf");
+    a.download = file.name.replace(/\.pdf$/i, "_pdfa_meta.pdf");
     a.click();
   };
 
-  const reset = () => {
-    setFile(null);
-    setError(null);
-    setResultUrl(null);
-  };
+  const reset = () => handleRemove();
 
   return (
     <ToolLayout
-      title="PDF to PDF/A"
-      description="Convert to PDF/A-2b for long-term archiving"
+      title="PDF/A Metadata"
+      description="Experimental: embed PDF/A-2b identification metadata"
       icon={Archive}
+      notice="This does not create a fully compliant PDF/A file. It only adds PDF/A-2b XMP identification. Validate with a dedicated PDF/A validator before archival use. Fonts, color profiles, and transparency are not converted."
     >
       <div className="space-y-5">
         <PdfDropzone
@@ -96,10 +102,7 @@ export default function PdfToPdfAPage() {
           onRemove={handleRemove}
           label="Drop your PDF here"
         />
-
-        <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
-          Embeds PDF/A-2b conformance metadata. For strict compliance, validate the output with a PDF/A validator.
-        </div>
+        <EncryptedNotice file={file} />
 
         {error && (
           <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
@@ -112,10 +115,10 @@ export default function PdfToPdfAPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              PDF/A-2b metadata applied successfully!
+              Metadata embedded (experimental)
             </div>
             <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download PDF/A
+              <Download className="h-4 w-4 mr-2" /> Download PDF
             </Button>
           </div>
         )}
@@ -123,14 +126,14 @@ export default function PdfToPdfAPage() {
         {!resultUrl ? (
           <Button onClick={handleConvert} disabled={!file || isLoading} className="w-full">
             {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Converting...</>
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</>
             ) : (
-              <><Archive className="h-4 w-4 mr-2" /> Convert to PDF/A</>
+              <><Archive className="h-4 w-4 mr-2" /> Add PDF/A Metadata</>
             )}
           </Button>
         ) : (
           <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Convert Another PDF
+            <RotateCcw className="h-4 w-4 mr-2" /> Start Over
           </Button>
         )}
       </div>

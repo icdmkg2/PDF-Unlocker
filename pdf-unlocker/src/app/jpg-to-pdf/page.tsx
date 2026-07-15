@@ -4,7 +4,8 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
 import { ImageIcon, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, GripVertical } from "lucide-react";
-import { imagesToPDF } from "@/lib/images-to-pdf";
+import { imagesToPDF, type ImagePageMode } from "@/lib/images-to-pdf";
+import { cn } from "@/lib/utils";
 
 export default function JpgToPdfPage() {
   const [images, setImages] = useState<File[]>([]);
@@ -12,6 +13,7 @@ export default function JpgToPdfPage() {
   const [error, setError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [pageMode, setPageMode] = useState<ImagePageMode>("a4-fit");
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -54,7 +56,7 @@ export default function JpgToPdfPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const bytes = await imagesToPDF(images);
+      const bytes = await imagesToPDF(images, pageMode);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
     } catch (err) {
@@ -97,6 +99,34 @@ export default function JpgToPdfPage() {
             Choose Images
           </label>
         </div>
+
+        {images.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Page size</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ["a4-fit", "A4 fit"],
+                  ["a4-fill", "A4 fill"],
+                  ["native", "Native size"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setPageMode(value)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
+                    pageMode === value
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {images.length > 0 && (
           <ul className="space-y-1.5">

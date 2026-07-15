@@ -147,8 +147,9 @@ export default function SignPage() {
   return (
     <ToolLayout
       title="Sign PDF"
-      description="Draw your signature and embed it into a PDF page"
+      description="Draw a signature image and stamp it onto a PDF page"
       icon={PenLine}
+      notice="Visual signature stamp only - not a cryptographic certificate digital signature (PAdES)."
     >
       <div className="space-y-5">
         <PdfDropzone

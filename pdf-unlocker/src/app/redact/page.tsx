@@ -162,8 +162,10 @@ export default function RedactPage() {
   return (
     <ToolLayout
       title="Redact PDF"
-      description="Draw black boxes over sensitive content to permanently hide it"
+      description="Permanently destroy content under black boxes by re-rasterizing pages"
       icon={EyeOff}
+      wide
+      notice="True redaction: each page is re-rendered as an image with black boxes burned in. Text under boxes cannot be selected or extracted. Side effect: redacted pages lose selectable text and vector quality."
     >
       <div className="space-y-5" ref={containerRef}>
         {!file && (
@@ -209,23 +211,27 @@ export default function RedactPage() {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
               >
-                {/* Existing redactions on this page */}
+                {/* Stored redaction boxes - semi-transparent red so you can still see what's underneath */}
                 {pageRedactions.map((r, i) => (
                   <div
                     key={i}
-                    className="absolute bg-black"
+                    className="absolute bg-red-500/35 border-2 border-red-500 flex items-center justify-center"
                     style={{
                       left: r.x * scale,
                       top: r.y * scale,
                       width: r.width * scale,
                       height: r.height * scale,
                     }}
-                  />
+                  >
+                    <span className="text-[10px] font-bold text-red-200 select-none pointer-events-none uppercase tracking-widest">
+                      Redact
+                    </span>
+                  </div>
                 ))}
                 {/* Currently drawing rect */}
                 {currentRect && (
                   <div
-                    className="absolute bg-black/70 border border-black"
+                    className="absolute bg-red-500/25 border-2 border-dashed border-red-500"
                     style={{
                       left: currentRect.x,
                       top: currentRect.y,
@@ -275,7 +281,7 @@ export default function RedactPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Redactions applied permanently!
+              Content under boxes destroyed (pages rasterized)
             </div>
             <Button onClick={handleDownload} className="w-full">
               <Download className="h-4 w-4 mr-2" /> Download redacted PDF

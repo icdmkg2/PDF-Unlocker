@@ -152,7 +152,7 @@ export default function UnlockPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              PDF unlocked — text fully preserved!
+              PDF unlocked - text fully preserved!
             </div>
             <div className="flex gap-3">
               <Button onClick={handleDownload} className="flex-1">

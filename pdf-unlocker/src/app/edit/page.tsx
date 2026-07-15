@@ -9,7 +9,7 @@ import {
   StickyNote, PenLine, Eraser, Download, RotateCcw,
   ChevronLeft, ChevronRight, Loader2, AlertCircle, Trash2,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  RotateCw,
+  RotateCw, Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,13 +68,13 @@ export default function EditPage() {
   // fabricVersion increments each time a new Fabric canvas is created.
   // This makes the mouse-handler useEffect re-run (refs are not reactive).
   const [fabricVersion, setFabricVersion] = useState(0);
+  const [canUndo, setCanUndo] = useState(false);
+  const undoStackRef = useRef<string[]>([]);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const bgCanvasRef = useRef<HTMLCanvasElement>(null);
-  // A stable div that stays absolutely positioned over the PDF canvas.
-  // Fabric creates fresh <canvas> elements inside this div each time a page loads,
-  // avoiding all the DOM confusion from Fabric's own wrapping / unwrapping logic.
-  const fabricContainerRef = useRef<HTMLDivElement>(null);
+  // Single canvas: Fabric owns it entirely. The PDF is set as Fabric's backgroundImage
+  // so there is no separate overlay - no transparency / z-index issues possible.
+  const fabricCanvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fabricRef = useRef<any>(null);
@@ -98,47 +98,112 @@ export default function EditPage() {
     return Math.max(0.5, Math.min(w, 900) / 816);
   }, []);
 
-  // Render a PDF page onto bgCanvasRef. rotation is additional degrees on top of native.
-  const renderPdfPage = useCallback(async (pageNum: number, scale: number, rotation: number) => {
-    if (!pdfDocRef.current || !bgCanvasRef.current) return null;
-    const page = await pdfDocRef.current.getPage(pageNum + 1);
-    const viewport = page.getViewport({ scale, rotation });
-    const canvas = bgCanvasRef.current;
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // canvas property is required in pdfjs-dist v5
-    await page.render({ canvasContext: ctx, canvas, viewport }).promise;
-    return { width: viewport.width, height: viewport.height };
-  }, []);
-
   const saveCurrentPageState = useCallback(() => {
-    if (fabricRef.current) {
-      pageStatesRef.current[currentPageRef.current] = { json: fabricRef.current.toJSON() };
-    }
+    const fc = fabricRef.current;
+    if (!fc) return;
+    // Strip backgroundImage from the saved JSON - the PDF is re-rendered fresh on every
+    // page load, so we only need to persist the annotation objects.
+    const json = fc.toJSON();
+    json.backgroundImage = null;
+    pageStatesRef.current[currentPageRef.current] = { json };
   }, []);
 
-  const initFabricForPage = useCallback(async (pageNum: number, width: number, height: number) => {
-    if (!fabricContainerRef.current) return;
-    // Dispose old canvas
+  const snapshotAnnotations = useCallback(() => {
+    const fc = fabricRef.current;
+    if (!fc) return "{}";
+    const json = fc.toJSON();
+    json.backgroundImage = null;
+    return JSON.stringify(json);
+  }, []);
+
+  const pushUndoSnapshot = useCallback(() => {
+    const snap = snapshotAnnotations();
+    const stack = undoStackRef.current;
+    if (stack[stack.length - 1] === snap) return;
+    stack.push(snap);
+    if (stack.length > 40) stack.shift();
+    setCanUndo(stack.length > 1);
+  }, [snapshotAnnotations]);
+
+  const handleUndo = useCallback(async () => {
+    const fc = fabricRef.current;
+    const stack = undoStackRef.current;
+    if (!fc || stack.length < 2) return;
+    stack.pop(); // drop current
+    const prev = stack[stack.length - 1];
+    setCanUndo(stack.length > 1);
+    const bg = fc.backgroundImage;
+    // Suppress history while restoring
+    fc.off("object:added");
+    fc.off("object:modified");
+    fc.off("object:removed");
+    fc.off("path:created");
+    await fc.loadFromJSON(JSON.parse(prev));
+    if (bg) fc.backgroundImage = bg;
+    fc.renderAll();
+    const onChange = () => {
+      pushUndoSnapshot();
+      saveCurrentPageState();
+    };
+    fc.on("object:added", onChange);
+    fc.on("object:modified", onChange);
+    fc.on("object:removed", onChange);
+    fc.on("path:created", onChange);
+    saveCurrentPageState();
+  }, [pushUndoSnapshot, saveCurrentPageState]);
+
+  // Render the PDF page to a temp canvas, set as Fabric backgroundImage, restore annotations.
+  // Single-canvas approach: Fabric owns the only visible canvas; no overlay / transparency needed.
+  const initFabricForPage = useCallback(async (pageNum: number, rotation: number) => {
+    if (!fabricCanvasRef.current || !pdfDocRef.current) return;
     if (fabricRef.current) { fabricRef.current.dispose(); fabricRef.current = null; }
-    // Wipe the container so no stale Fabric DOM remains
-    fabricContainerRef.current.innerHTML = "";
-    // Create a fresh <canvas> inside the stable container div.
-    // fabricContainerRef is `position:absolute; inset:0` so it already perfectly
-    // overlays bgCanvasRef — no DOM fixups needed.
-    const canvasEl = document.createElement("canvas");
-    fabricContainerRef.current.appendChild(canvasEl);
-    const { Canvas, PencilBrush } = await import("fabric");
-    const fc = new Canvas(canvasEl, { width, height, isDrawingMode: false, selection: true });
+
+    const s = calcScale();
+    scaleRef.current = s;
+    const page = await pdfDocRef.current.getPage(pageNum + 1);
+    const viewport = page.getViewport({ scale: s, rotation });
+    const w = Math.round(viewport.width);
+    const h = Math.round(viewport.height);
+
+    // Render PDF page to an off-screen canvas, then use it as Fabric's backgroundImage
+    const offscreen = document.createElement("canvas");
+    offscreen.width = w; offscreen.height = h;
+    const ctx = offscreen.getContext("2d")!;
+    await page.render({ canvasContext: ctx, canvas: offscreen, viewport }).promise;
+    const bgDataUrl = offscreen.toDataURL("image/jpeg", 0.95);
+
+    const { Canvas, PencilBrush, FabricImage } = await import("fabric");
+    const fc = new Canvas(fabricCanvasRef.current, { width: w, height: h, isDrawingMode: false, selection: true });
     fc.freeDrawingBrush = new PencilBrush(fc);
     fc.freeDrawingBrush.color = color;
     fc.freeDrawingBrush.width = strokeWidth;
+
+    // Restore saved annotation objects (backgroundImage excluded from saved state)
     const saved = pageStatesRef.current[pageNum];
-    if (saved?.json) { await fc.loadFromJSON(saved.json); fc.renderAll(); }
+    if (saved?.json) { await fc.loadFromJSON(saved.json); }
+
+    // Set PDF as non-selectable background
+    const bgImg = await FabricImage.fromURL(bgDataUrl);
+    bgImg.set({ selectable: false, evented: false, hoverCursor: "default" });
+    fc.backgroundImage = bgImg;
+    fc.renderAll();
+
     fabricRef.current = fc;
-    // Increment version so the mouse-handler AND tool-apply effects re-run
+    undoStackRef.current = [];
+    // Baseline snapshot (empty or restored annotations)
+    const base = fc.toJSON();
+    base.backgroundImage = null;
+    undoStackRef.current.push(JSON.stringify(base));
+    setCanUndo(false);
+    const onChange = () => {
+      pushUndoSnapshot();
+      saveCurrentPageState();
+    };
+    fc.on("object:added", onChange);
+    fc.on("object:modified", onChange);
+    fc.on("object:removed", onChange);
+    fc.on("path:created", onChange);
+
     setFabricVersion((v) => v + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -164,15 +229,12 @@ export default function EditPage() {
   const loadPage = useCallback(async (pageNum: number, rotation?: number) => {
     setIsLoadingPdf(true);
     try {
-      const s = calcScale();
-      scaleRef.current = s;
       const rot = rotation !== undefined ? rotation : (pageRotationsRef.current[pageNum] ?? 0);
-      const dims = await renderPdfPage(pageNum, s, rot);
-      if (dims) { await initFabricForPage(pageNum, dims.width, dims.height); }
+      await initFabricForPage(pageNum, rot);
     } finally {
       setIsLoadingPdf(false);
     }
-  }, [calcScale, renderPdfPage, initFabricForPage]);
+  }, [initFabricForPage]);
 
   const handleFiles = useCallback(async (files: File[]) => {
     const f = files[0];
@@ -196,17 +258,14 @@ export default function EditPage() {
       setPageRotations(rotations);
       pageRotationsRef.current = rotations;
       setTimeout(async () => {
-        const s = calcScale();
-        scaleRef.current = s;
-        const dims = await renderPdfPage(0, s, 0);
-        if (dims) await initFabricForPage(0, dims.width, dims.height);
+        await initFabricForPage(0, 0);
         setIsLoadingPdf(false);
       }, 80);
     } catch (err) {
       setPdfError(err instanceof Error ? err.message : "Failed to load PDF.");
       setIsLoadingPdf(false);
     }
-  }, [calcScale, renderPdfPage, initFabricForPage]);
+  }, [initFabricForPage]);
 
   const handleRemove = useCallback(() => {
     if (fabricRef.current) { fabricRef.current.dispose(); fabricRef.current = null; }
@@ -239,7 +298,7 @@ export default function EditPage() {
   // Apply tool settings whenever they change OR a new Fabric canvas is created
   useEffect(() => { applyActiveTool(activeTool, color, strokeWidth); }, [fabricVersion, activeTool, color, strokeWidth, applyActiveTool]);
 
-  // Mouse handler — depends on fabricVersion so it re-runs each time a new canvas is created
+  // Mouse handler - depends on fabricVersion so it re-runs each time a new canvas is created
   useEffect(() => {
     const fc = fabricRef.current;
     if (!fc) return;
@@ -352,7 +411,10 @@ export default function EditPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = `edited_${file.name}`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (err) { console.error("Export error:", err); }
+    } catch (err) {
+      console.error("Export error:", err);
+      setPdfError(err instanceof Error ? err.message : "Export failed. Try fewer annotations or a smaller PDF.");
+    }
     finally { setIsExporting(false); }
   };
 
@@ -383,7 +445,12 @@ export default function EditPage() {
   // ── UPLOAD SCREEN ─────────────────────────────────────────────────────────
   if (!file) {
     return (
-      <ToolLayout title="Edit PDF" description="Annotate, draw, add text, shapes and signatures" icon={PenTool}>
+      <ToolLayout
+        title="Edit PDF"
+        description="Annotate, draw, add text, shapes and signatures"
+        icon={PenTool}
+        notice="Export flattens annotated pages to images. Existing PDF text becomes non-selectable on pages you annotate or rotate."
+      >
         <div className="space-y-4">
           <PdfDropzone onFiles={handleFiles} files={[]} label="Drop your PDF to start editing" />
           {pdfError && (
@@ -410,6 +477,9 @@ export default function EditPage() {
             <span className="text-sm font-medium text-foreground truncate max-w-xs">{file.name}</span>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={!canUndo} title="Undo">
+              <Undo2 className="h-3.5 w-3.5 mr-1" /><span className="text-xs">Undo</span>
+            </Button>
             <Button variant="ghost" size="sm" onClick={deleteSelected} title="Delete selected">
               <Trash2 className="h-3.5 w-3.5 mr-1" /><span className="text-xs">Delete</span>
             </Button>
@@ -538,12 +608,10 @@ export default function EditPage() {
           </div>
         )}
 
+        {/* Single Fabric canvas - PDF is set as backgroundImage, annotations on top */}
         <div ref={wrapperRef} style={{ display: isLoadingPdf ? "none" : "inline-block" }}
-          className="relative shadow-[0_2px_16px_rgba(0,0,0,0.25)] bg-white">
-          {/* PDF background */}
-          <canvas ref={bgCanvasRef} className="block" />
-          {/* Fabric annotation layer — always on top, same size as bgCanvasRef */}
-          <div ref={fabricContainerRef} className="absolute inset-0" />
+          className="shadow-[0_2px_16px_rgba(0,0,0,0.25)]">
+          <canvas ref={fabricCanvasRef} className="block" />
         </div>
 
         {totalPages > 1 && (

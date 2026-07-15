@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Hash, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { addPageNumbers, type PageNumberPosition } from "@/lib/pdf-page-numbers";
+import { addPageNumbers, type PageNumberPosition, type PageNumberFormat } from "@/lib/pdf-page-numbers";
 import { cn } from "@/lib/utils";
 
 const POSITIONS: { label: string; value: PageNumberPosition; col: number; row: number }[] = [
@@ -34,6 +34,8 @@ export default function PageNumbersPage() {
   const [startFrom, setStartFrom] = useState(1);
   const [fontSize, setFontSize] = useState(10);
   const [color, setColor] = useState("#000000");
+  const [format, setFormat] = useState<PageNumberFormat>("number");
+  const [skipFirst, setSkipFirst] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -60,6 +62,8 @@ export default function PageNumbersPage() {
         startFrom,
         fontSize,
         color: hexToRgb(color),
+        format,
+        skipFirst,
       });
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
@@ -119,6 +123,42 @@ export default function PageNumbersPage() {
                 ))}
               </div>
             </div>
+
+            <div className="space-y-1.5">
+              <Label>Format</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    ["number", "1, 2, 3"],
+                    ["page-n", "Page 1"],
+                    ["page-n-of-m", "Page 1 of N"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setFormat(value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md border text-xs font-medium transition-colors",
+                      format === value
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={skipFirst}
+                onChange={(e) => setSkipFirst(e.target.checked)}
+                className="rounded"
+              />
+              Skip first page (cover)
+            </label>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

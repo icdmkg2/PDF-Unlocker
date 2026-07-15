@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  FileText, GitMerge, Scissors, Minimize2, Wrench, LayoutGrid,
+  GitMerge, Scissors, Minimize2, Wrench, LayoutGrid,
   ImageIcon, Globe, Camera, Images, Archive,
   PenTool, RotateCw, Hash, Droplets, Crop,
   Unlock, Lock, PenLine, EyeOff, GitCompare,
   Menu, X, ChevronDown, ChevronRight,
+  FileType, Tags, ClipboardList, Image as ImageLucide,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/logo";
 
 const navSections = [
   {
@@ -35,7 +37,9 @@ const navSections = [
     category: "Convert FROM PDF",
     tools: [
       { label: "PDF to JPG", href: "/pdf-to-jpg", icon: Images },
-      { label: "PDF to PDF/A", href: "/pdf-to-pdfa", icon: Archive },
+      { label: "Extract Text", href: "/extract-text", icon: FileType },
+      { label: "Extract Images", href: "/extract-images", icon: ImageLucide },
+      { label: "PDF/A Metadata", href: "/pdf-to-pdfa", icon: Archive },
     ],
   },
   {
@@ -46,6 +50,8 @@ const navSections = [
       { label: "Page Numbers", href: "/page-numbers", icon: Hash },
       { label: "Add Watermark", href: "/watermark", icon: Droplets },
       { label: "Crop PDF", href: "/crop", icon: Crop },
+      { label: "Fill Forms", href: "/forms", icon: ClipboardList },
+      { label: "Metadata", href: "/metadata", icon: Tags },
     ],
   },
   {
@@ -73,46 +79,53 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
   const toggle = (cat: string) => {
     setOpen((prev) => {
       const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
       return next;
     });
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
-        <Link href="/" className="flex items-center gap-2.5" onClick={onClose}>
-          <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
-            <FileText className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-foreground text-sm">PDF Studio</span>
-        </Link>
+    <div className="flex h-full flex-col bg-sidebar">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-sidebar-border px-3.5 py-4">
+        <Logo
+          size={28}
+          subtitle="Local"
+          onClick={onClose}
+          className="gap-2.5"
+        />
         {onClose && (
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground lg:hidden">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground transition hover:text-foreground lg:hidden"
+            aria-label="Close menu"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
         {navSections.map((section) => {
           const isOpen = open.has(section.category);
           return (
             <div key={section.category}>
               <button
                 onClick={() => toggle(section.category)}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-muted transition-colors group"
+                className="group flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-sidebar-accent"
               >
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors">
+                <span className="font-label text-[10px] text-muted-foreground transition-colors group-hover:text-foreground">
                   {section.category}
                 </span>
-                {isOpen
-                  ? <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                  : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+                {isOpen ? (
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                )}
               </button>
 
               {isOpen && (
-                <ul className="mt-0.5 mb-1 space-y-0.5">
+                <ul className="mb-1 mt-0.5 space-y-0.5">
                   {section.tools.map(({ label, href, icon: Icon }) => {
                     const active = pathname === href;
                     return (
@@ -121,10 +134,10 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
                           href={href}
                           onClick={onClose}
                           className={cn(
-                            "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-xs transition-colors",
+                            "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-colors",
                             active
-                              ? "bg-primary/15 text-primary font-medium"
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              ? "bg-primary/10 font-medium text-primary"
+                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                           )}
                         >
                           <Icon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -140,8 +153,10 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
         })}
       </nav>
 
-      <div className="px-4 py-2.5 border-t border-border flex-shrink-0">
-        <p className="text-[10px] text-muted-foreground text-center">100% client-side • No uploads</p>
+      <div className="flex-shrink-0 border-t border-sidebar-border px-4 py-3">
+        <p className="font-label text-center text-[9px] text-muted-foreground">
+          On-device · No uploads
+        </p>
       </div>
     </div>
   );
@@ -153,12 +168,12 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="hidden lg:flex flex-col w-56 flex-shrink-0 border-r border-border bg-card h-full">
+      <aside className="hidden h-full w-56 flex-shrink-0 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
         <NavContent pathname={pathname} />
       </aside>
 
       <button
-        className="lg:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground shadow-sm"
+        className="fixed left-3 top-3 z-50 rounded-md border border-border bg-card p-2 text-muted-foreground shadow-sm transition hover:text-foreground lg:hidden"
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
       >
@@ -166,9 +181,9 @@ export function Sidebar() {
       </button>
 
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <aside className="relative flex flex-col w-64 bg-card border-r border-border h-full shadow-xl">
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div className="fixed inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+          <aside className="relative flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar shadow-xl">
             <NavContent pathname={pathname} onClose={() => setMobileOpen(false)} />
           </aside>
         </div>

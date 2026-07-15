@@ -8,6 +8,8 @@ export type PageNumberPosition =
   | "top-right"
   | "top-left";
 
+export type PageNumberFormat = "number" | "page-n" | "page-n-of-m";
+
 export async function addPageNumbers(
   file: File,
   options: {
@@ -15,17 +17,30 @@ export async function addPageNumbers(
     startFrom: number;
     fontSize: number;
     color: [number, number, number];
+    format?: PageNumberFormat;
+    skipFirst?: boolean;
   }
 ): Promise<Uint8Array> {
   const bytes = await file.arrayBuffer();
   const doc = await PDFDocument.load(bytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const [r, g, b] = options.color;
+  const total = doc.getPageCount();
+  const format = options.format ?? "number";
 
-  for (let i = 0; i < doc.getPageCount(); i++) {
+  for (let i = 0; i < total; i++) {
+    if (options.skipFirst && i === 0) continue;
+
     const page = doc.getPage(i);
     const { width, height } = page.getSize();
-    const text = String(i + options.startFrom);
+    const n = i + options.startFrom;
+    const text =
+      format === "page-n-of-m"
+        ? `Page ${n} of ${total + options.startFrom - 1}`
+        : format === "page-n"
+          ? `Page ${n}`
+          : String(n);
+
     const textWidth = font.widthOfTextAtSize(text, options.fontSize);
     const margin = 20;
 

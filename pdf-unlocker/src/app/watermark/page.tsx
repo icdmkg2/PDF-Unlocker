@@ -27,6 +27,8 @@ export default function WatermarkPage() {
   const [fontSize, setFontSize] = useState(48);
   const [tiled, setTiled] = useState(false);
   const [color, setColor] = useState("#888888");
+  const [mode, setMode] = useState<"text" | "image">("text");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -43,18 +45,30 @@ export default function WatermarkPage() {
     setResultUrl(null);
   }, []);
 
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setImageDataUrl(String(reader.result));
+    reader.readAsDataURL(f);
+  };
+
   const handleWatermark = async () => {
-    if (!file || !text.trim()) return;
+    if (!file) return;
+    if (mode === "text" && !text.trim()) return;
+    if (mode === "image" && !imageDataUrl) return;
     setIsLoading(true);
     setError(null);
     try {
       const bytes = await addWatermark(file, {
-        text,
+        text: mode === "text" ? text : "",
         opacity,
         fontSize,
         rotation,
         tiled,
         color: hexToRgb(color),
+        imageDataUrl: mode === "image" ? imageDataUrl : null,
+        imageScale: 0.35,
       });
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
@@ -82,7 +96,7 @@ export default function WatermarkPage() {
   return (
     <ToolLayout
       title="Add Watermark"
-      description="Overlay a text watermark on all PDF pages"
+      description="Overlay text or image watermarks on all PDF pages"
       icon={Droplets}
     >
       <div className="space-y-5">
@@ -95,6 +109,24 @@ export default function WatermarkPage() {
 
         {file && (
           <>
+            <div className="flex gap-1.5">
+              {(["text", "image"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "flex-1 py-1.5 rounded-md border text-xs font-medium capitalize transition-colors",
+                    mode === m
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            {mode === "text" ? (
             <div className="space-y-1.5">
               <Label htmlFor="wm-text">Watermark text</Label>
               <Input
@@ -104,6 +136,16 @@ export default function WatermarkPage() {
                 placeholder="e.g. CONFIDENTIAL"
               />
             </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="wm-image">Watermark image (PNG/JPEG)</Label>
+                <Input id="wm-image" type="file" accept="image/png,image/jpeg" onChange={handleImagePick} />
+                {imageDataUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imageDataUrl} alt="Watermark preview" className="h-16 object-contain rounded border border-border" />
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -209,7 +251,11 @@ export default function WatermarkPage() {
         )}
 
         {!resultUrl ? (
-          <Button onClick={handleWatermark} disabled={!file || !text.trim() || isLoading} className="w-full">
+          <Button
+            onClick={handleWatermark}
+            disabled={!file || isLoading || (mode === "text" ? !text.trim() : !imageDataUrl)}
+            className="w-full"
+          >
             {isLoading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Adding watermark...</>
             ) : (

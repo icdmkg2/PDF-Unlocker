@@ -154,14 +154,25 @@ export default function ScanPage() {
 
         {/* Upload tab */}
         {tab === "upload" && (
-          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors">
-            <ImageIcon className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground mb-3">Drop images here or click to browse</p>
-            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-              <input type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+          <label
+            className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+              if (files.length) setCapturedImages((prev) => [...prev, ...files]);
+            }}
+          >
+            <input type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+            <ImageIcon className="h-9 w-9 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Drop images here or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP, GIF - multiple files supported</p>
+            </div>
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
               Choose Images
-            </label>
-          </div>
+            </span>
+          </label>
         )}
 
         {/* QR Code tab */}
