@@ -4,118 +4,84 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { Wrench, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { repairPDF } from "@/lib/pdf-repair";
-import { revokeUrl } from "@/lib/pdf-utils";
+import { ResultCard, formatSize } from "@/components/result-card";
+import { ErrorNote, Step, Steps, Working } from "@/components/steps";
+import { Wrench } from "lucide-react";
+import { repairPDF, type RepairResult } from "@/lib/pdf-repair";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function RepairPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [notes, setNotes] = useState<string[]>([]);
-  const [method, setMethod] = useState<string | null>(null);
+  const [result, setResult] = useState<{ blob: Blob; info: RepairResult } | null>(null);
 
   const handleFiles = useCallback((files: File[]) => {
-    revokeUrl(resultUrl);
     setFile(files[0]);
     setError(null);
-    setResultUrl(null);
-    setNotes([]);
-    setMethod(null);
-  }, [resultUrl]);
+    setResult(null);
+  }, []);
 
-  const handleRemove = useCallback(() => {
-    revokeUrl(resultUrl);
+  const reset = () => {
     setFile(null);
     setError(null);
-    setResultUrl(null);
-    setNotes([]);
-    setMethod(null);
-  }, [resultUrl]);
+    setResult(null);
+  };
 
   const handleRepair = async () => {
     if (!file) return;
-    setIsLoading(true);
+    setWorking(true);
     setError(null);
     try {
-      const result = await repairPDF(file);
-      revokeUrl(resultUrl);
-      setResultUrl(URL.createObjectURL(new Blob([result.bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" })));
-      setNotes(result.notes);
-      setMethod(result.method);
+      const info = await repairPDF(file);
+      setResult({ blob: new Blob([info.bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" }), info });
       await addHistoryEntry({ tool: "Repair", fileName: file.name, size: file.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Repair failed.");
     } finally {
-      setIsLoading(false);
+      setWorking(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!resultUrl || !file) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = `repaired_${file.name}`;
-    a.click();
-  };
-
   return (
-    <ToolLayout
-      title="Repair PDF"
-      description="Rebuild PDF structure for better compatibility"
-      icon={Wrench}
-      notice="Repair re-serializes the PDF (and may run pdfcpu optimize). It cannot recover every corrupted file. Success means a cleaner structure - not necessarily that every original error was fixed."
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
-        />
+    <ToolLayout title="Repair PDF" description="Rebuild a PDF's structure so other apps can open it" icon={Wrench} medium>
+      <Steps>
+        <Step n={1} title="Add a PDF" state={file ? "done" : "current"} summary={file && `${file.name} · ${formatSize(file.size)}`} onChange={reset}>
+          <PdfDropzone onFiles={handleFiles} label="Drop the PDF that won't open properly" />
+        </Step>
 
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Rebuilt via {method}
-            </div>
-            {notes.length > 0 && (
-              <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-5">
-                {notes.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            )}
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download repaired PDF
-            </Button>
-          </div>
-        )}
-
-        {!resultUrl ? (
-          <Button onClick={handleRepair} disabled={!file || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Repairing...</>
-            ) : (
-              <><Wrench className="h-4 w-4 mr-2" /> Repair PDF</>
-            )}
+        <Step n={2} title="Rebuild it" state={!file ? "todo" : result ? "done" : "current"} summary={result && `via ${result.info.method}`}>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Repair rewrites the file&apos;s internal structure, falling back to pdfcpu if needed. It can&apos;t recover
+            every damaged file, and a clean rebuild doesn&apos;t guarantee every original error is gone.
+          </p>
+          {working && <Working>Rebuilding…</Working>}
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Button onClick={handleRepair} disabled={working} className="w-full">
+            <Wrench className="h-4 w-4" /> Repair
           </Button>
-        ) : (
-          <Button onClick={handleRemove} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Repair Another PDF
-          </Button>
-        )}
-      </div>
+        </Step>
+
+        <Step n={3} title="Save" state={result ? "current" : "todo"}>
+          {result && file && (
+            <ResultCard
+              verb="Rebuilt"
+              blob={result.blob}
+              fileName={file.name.replace(/\.pdf$/i, "") + "_repaired.pdf"}
+              inputSize={file.size}
+              note={
+                result.info.notes.length > 0 && (
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    {result.info.notes.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                )
+              }
+              onReset={reset}
+              resetLabel="Repair another"
+            />
+          )}
+        </Step>
+      </Steps>
     </ToolLayout>
   );
 }

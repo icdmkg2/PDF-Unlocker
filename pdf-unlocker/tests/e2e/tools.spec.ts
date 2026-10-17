@@ -9,7 +9,7 @@ test("merge combines files and the result appears under Recent", async ({ page }
   await page.getByRole("button", { name: "Merge 2 PDFs" }).click();
 
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Download merged\.pdf/ }).click();
+  await page.getByTestId("result-card").getByRole("button", { name: "Download" }).click();
   expect(await pageCountOf(await downloadBytes(await downloading))).toBe(5);
 
   await page.goto("/");
@@ -22,11 +22,11 @@ test("compress keeps text by default and never makes the file bigger", async ({ 
   const input = await pdfFile("report.pdf", 3);
   await page.goto("/compress");
   await upload(page, [input]);
-  await expect(page.getByRole("button", { name: /Keep text/ })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Compress PDF" }).click();
+  await expect(page.getByRole("radio", { name: /Keep text/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Compress", exact: true }).click();
 
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download compressed PDF" }).click();
+  await page.getByTestId("result-card").getByRole("button", { name: "Download" }).click();
   const out = await downloadBytes(await downloading);
   expect(out.length).toBeLessThanOrEqual(input.buffer.length);
   expect(await pageCountOf(out)).toBe(3);
@@ -50,10 +50,10 @@ test("protect then unlock, remembering a named password", async ({ page }) => {
   await page.goto("/protect");
   await upload(page, [await pdfFile("contract.pdf", 2)]);
   await page.locator("#userPw").fill("tulip-42");
-  await page.getByLabel("Confirm User Password").fill("tulip-42");
+  await page.getByLabel("Confirm password").fill("tulip-42");
   await page.getByRole("button", { name: "Protect PDF" }).click();
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download protected PDF" }).click();
+  await page.getByTestId("result-card").getByRole("button", { name: "Download" }).click();
   const locked = await downloadBytes(await downloading);
   await expect(PDFDocument.load(locked)).rejects.toThrow(/encrypted/i);
   const lockedFile = { name: "contract.pdf", mimeType: "application/pdf", buffer: locked };
@@ -72,9 +72,9 @@ test("protect then unlock, remembering a named password", async ({ page }) => {
   await remember.check();
   await page.getByLabel("Name for this password").fill("Contracts");
   await page.getByRole("button", { name: "Unlock PDF" }).click();
-  await expect(page.getByText("Unlocked.")).toBeVisible();
+  await expect(page.getByTestId("result-card")).toContainText("Unlocked");
   const unlocking = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByTestId("result-card").getByRole("button", { name: "Download" }).click();
   expect(await pageCountOf(await downloadBytes(await unlocking))).toBe(2);
 
   // After a reload the named password is offered and "Try saved passwords" finds it.
@@ -86,6 +86,7 @@ test("protect then unlock, remembering a named password", async ({ page }) => {
 
   // Manage: rename then forget
   await page.getByRole("button", { name: "Unlock another PDF" }).click();
+  await upload(page, [lockedFile]);
   await page.getByRole("button", { name: "Manage" }).click();
   await page.getByRole("button", { name: "Rename" }).click();
   await page.getByLabel("Password name").fill("Work contracts");
@@ -97,6 +98,7 @@ test("protect then unlock, remembering a named password", async ({ page }) => {
 
 test("a password is not saved unless the user opts in", async ({ page }) => {
   await page.goto("/unlock");
+  await upload(page, [await pdfFile("plain.pdf")]);
   await page.getByLabel("Password", { exact: true }).fill("not-saved");
   await expect(page.getByLabel("Remember this password on this device")).not.toBeChecked();
   const stored = await page.evaluate(() => localStorage.getItem("pdf-studio:saved-passwords"));

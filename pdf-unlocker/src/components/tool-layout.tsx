@@ -7,6 +7,8 @@ interface ToolLayoutProps {
   icon: LucideIcon;
   children: React.ReactNode;
   wide?: boolean;
+  /** Room for a step list beside the result card's next steps. */
+  medium?: boolean;
   fullWidth?: boolean;
   notice?: React.ReactNode;
 }
@@ -17,6 +19,7 @@ export function ToolLayout({
   icon: Icon,
   children,
   wide = false,
+  medium = false,
   fullWidth = false,
   notice,
 }: ToolLayoutProps) {
@@ -25,7 +28,7 @@ export function ToolLayout({
       <div
         className={cn(
           "mx-auto",
-          fullWidth ? "max-w-none" : wide ? "max-w-5xl" : "max-w-2xl"
+          fullWidth ? "max-w-none" : wide ? "max-w-5xl" : medium ? "max-w-3xl" : "max-w-2xl"
         )}
       >
         <div className="mb-7 flex items-start gap-3.5">
