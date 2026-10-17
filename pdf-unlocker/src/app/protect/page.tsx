@@ -8,8 +8,20 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Lock, Eye, EyeOff, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { protectPDF } from "@/lib/pdf-protect";
+import {
+  RememberPassword,
+  SavedPasswordPicker,
+  useSavedPasswords,
+  type RememberChoice,
+} from "@/components/saved-passwords";
+import { markPasswordUsed, savePassword } from "@/lib/saved-passwords";
+import { addHistoryEntry } from "@/lib/local-history";
+
+const NO_REMEMBER: RememberChoice = { remember: false, name: "" };
 
 export default function ProtectPage() {
+  const saved = useSavedPasswords();
+  const [remember, setRemember] = useState<RememberChoice>(NO_REMEMBER);
   const [file, setFile] = useState<File | null>(null);
   const [userPw, setUserPw] = useState("");
   const [userPwConfirm, setUserPwConfirm] = useState("");
@@ -48,6 +60,11 @@ export default function ProtectPage() {
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
       setProgress(null);
+      if (remember.remember && !saved.some((p) => p.password === userPw)) {
+        savePassword(userPw, remember.name);
+      }
+      markPasswordUsed(userPw);
+      await addHistoryEntry({ tool: "Protect", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Encryption failed.");
       setProgress(null);
@@ -69,6 +86,7 @@ export default function ProtectPage() {
     setUserPw("");
     setUserPwConfirm("");
     setOwnerPw("");
+    setRemember(NO_REMEMBER);
     setError(null);
     setResultUrl(null);
     setProgress(null);
@@ -121,6 +139,18 @@ export default function ProtectPage() {
             onChange={(e) => setUserPwConfirm(e.target.value)}
           />
         </div>
+
+        <SavedPasswordPicker
+          selected={userPw}
+          onPick={(pw) => {
+            setUserPw(pw);
+            setUserPwConfirm(pw);
+          }}
+        />
+
+        {userPw && !saved.some((p) => p.password === userPw) && (
+          <RememberPassword id="protect" value={remember} onChange={setRemember} />
+        )}
 
         {/* Owner password */}
         <div className="space-y-1.5">
