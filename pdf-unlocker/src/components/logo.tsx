@@ -10,7 +10,7 @@ type LogoProps = {
   onClick?: () => void;
 };
 
-/** Brand mark uses the same asset as the favicon (`/icon.svg`). */
+/** Full brand mark (`/logo.svg`). The favicon (`/icon.svg`) is a simplified cut for small sizes. */
 export function Logo({
   href = "/",
   size = 28,
@@ -22,7 +22,7 @@ export function Logo({
   const mark = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/icon.svg"
+      src="/logo.svg"
       alt=""
       width={size}
       height={size}
