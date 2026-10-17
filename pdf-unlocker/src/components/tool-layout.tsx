@@ -33,7 +33,6 @@ export function ToolLayout({
             <Icon className="h-5 w-5 text-foreground" />
           </div>
           <div className="min-w-0 pt-0.5">
-            <p className="font-label mb-1 text-muted-foreground">Tool</p>
             <h1 className="font-display text-2xl tracking-tight text-foreground sm:text-[1.75rem]">
               {title}
             </h1>

@@ -3,68 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import {
-  GitMerge, Scissors, Minimize2, Wrench, LayoutGrid,
-  ImageIcon, Globe, Camera, Images, Archive,
-  PenTool, RotateCw, Hash, Droplets, Crop,
-  Unlock, Lock, PenLine, EyeOff, GitCompare,
-  Menu, X, ChevronDown, ChevronRight,
-  FileType, Tags, ClipboardList, Image as ImageLucide,
-} from "lucide-react";
+import { Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
-
-const navSections = [
-  {
-    category: "Organize & Optimize",
-    tools: [
-      { label: "Merge PDF", href: "/merge", icon: GitMerge },
-      { label: "Split PDF", href: "/split", icon: Scissors },
-      { label: "Organize PDF", href: "/organize", icon: LayoutGrid },
-      { label: "Compress PDF", href: "/compress", icon: Minimize2 },
-      { label: "Repair PDF", href: "/repair", icon: Wrench },
-    ],
-  },
-  {
-    category: "Convert TO PDF",
-    tools: [
-      { label: "JPG to PDF", href: "/jpg-to-pdf", icon: ImageIcon },
-      { label: "HTML to PDF", href: "/html-to-pdf", icon: Globe },
-      { label: "Scan to PDF", href: "/scan", icon: Camera },
-    ],
-  },
-  {
-    category: "Convert FROM PDF",
-    tools: [
-      { label: "PDF to JPG", href: "/pdf-to-jpg", icon: Images },
-      { label: "Extract Text", href: "/extract-text", icon: FileType },
-      { label: "Extract Images", href: "/extract-images", icon: ImageLucide },
-      { label: "PDF/A Metadata", href: "/pdf-to-pdfa", icon: Archive },
-    ],
-  },
-  {
-    category: "Edit & Annotate",
-    tools: [
-      { label: "Edit PDF", href: "/edit", icon: PenTool },
-      { label: "Rotate PDF", href: "/rotate", icon: RotateCw },
-      { label: "Page Numbers", href: "/page-numbers", icon: Hash },
-      { label: "Add Watermark", href: "/watermark", icon: Droplets },
-      { label: "Crop PDF", href: "/crop", icon: Crop },
-      { label: "Fill Forms", href: "/forms", icon: ClipboardList },
-      { label: "Metadata", href: "/metadata", icon: Tags },
-    ],
-  },
-  {
-    category: "Security & Signatures",
-    tools: [
-      { label: "Unlock PDF", href: "/unlock", icon: Unlock },
-      { label: "Protect PDF", href: "/protect", icon: Lock },
-      { label: "Sign PDF", href: "/sign", icon: PenLine },
-      { label: "Redact PDF", href: "/redact", icon: EyeOff },
-      { label: "Compare PDF", href: "/compare", icon: GitCompare },
-    ],
-  },
-];
+import { toolSections as navSections } from "@/lib/tools";
 
 function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
   const activeCat = navSections.find((s) => s.tools.some((t) => t.href === pathname))?.category;
@@ -88,12 +30,7 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
   return (
     <div className="flex h-full flex-col bg-sidebar">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-sidebar-border px-3.5 py-4">
-        <Logo
-          size={28}
-          subtitle="Local"
-          onClick={onClose}
-          className="gap-2.5"
-        />
+        <Logo size={26} onClick={onClose} />
         {onClose && (
           <button
             onClick={onClose}
@@ -105,7 +42,7 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
         )}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-2 py-3">
         {navSections.map((section) => {
           const isOpen = open.has(section.category);
           return (
@@ -118,7 +55,7 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
                   {section.category}
                 </span>
                 {isOpen ? (
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  <ChevronDown className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 ) : (
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 )}
@@ -152,12 +89,6 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
           );
         })}
       </nav>
-
-      <div className="flex-shrink-0 border-t border-sidebar-border px-4 py-3">
-        <p className="font-label text-center text-[9px] text-muted-foreground">
-          On-device · No uploads
-        </p>
-      </div>
     </div>
   );
 }
@@ -165,6 +96,9 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // The landing page carries its own header and full tool catalog.
+  if (pathname === "/") return null;
 
   return (
     <>
