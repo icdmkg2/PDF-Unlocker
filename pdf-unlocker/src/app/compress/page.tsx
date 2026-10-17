@@ -6,35 +6,19 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Minimize2, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { compressPDF, type CompressQuality } from "@/lib/pdf-compress";
+import { addHistoryEntry } from "@/lib/local-history";
 import { cn } from "@/lib/utils";
 
-const QUALITY_OPTIONS: { id: CompressQuality; label: string; desc: string; estimate: string; accent: string }[] = [
-  {
-    id: "screen",
-    label: "Screen",
-    desc: "Strongest lossy compress - for email & web",
-    estimate: "~60-80% smaller",
-    accent: "border-blue-500/50 bg-blue-500/5 text-blue-400",
-  },
-  {
-    id: "ebook",
-    label: "Ebook",
-    desc: "Balanced JPEG quality (recommended)",
-    estimate: "~40-60% smaller",
-    accent: "border-violet-500/50 bg-violet-500/5 text-violet-400",
-  },
-  {
-    id: "print",
-    label: "Print",
-    desc: "Higher quality JPEG, larger file",
-    estimate: "~20-40% smaller",
-    accent: "border-amber-500/50 bg-amber-500/5 text-amber-400",
-  },
+const QUALITY_OPTIONS: { id: CompressQuality; label: string; desc: string }[] = [
+  { id: "lossless", label: "Keep text", desc: "Removes duplicate fonts and images, unused data. Text, links and forms stay." },
+  { id: "screen", label: "Smallest", desc: "Pages become low-res images. For email and web." },
+  { id: "ebook", label: "Balanced", desc: "Pages become medium-quality images." },
+  { id: "print", label: "High quality", desc: "Pages become sharp images. Larger file." },
 ];
 
 export default function CompressPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [quality, setQuality] = useState<CompressQuality>("ebook");
+  const [quality, setQuality] = useState<CompressQuality>("lossless");
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +40,7 @@ export default function CompressPage() {
     if (!file) return;
     setIsLoading(true);
     setError(null);
-    setProgress("Rendering pages…");
+    setProgress(quality === "lossless" ? "Optimizing (first run loads pdfcpu)…" : "Rendering pages…");
     try {
       const bytes = await compressPDF(file, quality, (page, total) => {
         setProgress(`Compressing page ${page} of ${total}…`);
@@ -68,6 +52,7 @@ export default function CompressPage() {
         compressedSize: bytes.length,
       });
       setProgress(null);
+      await addHistoryEntry({ tool: "Compress", fileName: file.name, size: bytes.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Compression failed.");
       setProgress(null);
@@ -97,9 +82,13 @@ export default function CompressPage() {
   return (
     <ToolLayout
       title="Compress PDF"
-      description="Lossy compress by rasterizing pages to JPEG"
+      description="Shrink a PDF, keeping text by default"
       icon={Minimize2}
-      notice="This flattens every page to an image. Selectable text, links, and form fields are removed. Already-scanned PDFs may not shrink (and can grow)."
+      notice={
+        quality === "lossless"
+          ? undefined
+          : "This mode turns every page into an image. Selectable text, links and form fields are removed. Scanned PDFs may not shrink."
+      }
     >
       <div className="space-y-5">
         <PdfDropzone onFiles={handleFiles} files={file ? [file] : []} onRemove={handleRemove} label="Drop your PDF here" />
@@ -108,23 +97,26 @@ export default function CompressPage() {
         {file && !result && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Compression level</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {QUALITY_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => setQuality(opt.id)}
+                  aria-pressed={quality === opt.id}
                   className={cn(
-                    "flex flex-col items-start gap-1 p-3 rounded-xl border-2 text-left transition-all",
+                    "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors",
                     quality === opt.id
-                      ? opt.accent
-                      : "border-border bg-card text-muted-foreground hover:border-muted-foreground/40"
+                      ? "border-primary/60 bg-primary/5"
+                      : "border-border bg-card hover:border-muted-foreground/40"
                   )}
                 >
-                  <span className="text-sm font-semibold text-foreground">{opt.label}</span>
-                  <span className="text-[11px] leading-snug">{opt.desc}</span>
-                  <span className={cn("text-[11px] font-medium mt-0.5", quality === opt.id ? "" : "text-muted-foreground")}>
-                    {opt.estimate}
+                  <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    {opt.label}
+                    {opt.id === "lossless" && (
+                      <span className="font-label text-[9px] text-emerald-500/90">Recommended</span>
+                    )}
                   </span>
+                  <span className="text-xs leading-snug text-muted-foreground">{opt.desc}</span>
                 </button>
               ))}
             </div>
@@ -150,7 +142,7 @@ export default function CompressPage() {
             <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg space-y-3">
               <div className="flex items-center gap-2 text-primary text-sm font-medium">
                 <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                Compression complete!
+                {reduction > 0 ? "Compression complete" : "Already as small as it gets in this mode"}
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="space-y-0.5">

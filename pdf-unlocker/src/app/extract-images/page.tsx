@@ -6,8 +6,9 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
 import { ImageIcon, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { extractImagesAsZip } from "@/lib/pdf-extract-images";
-import { downloadBlob, revokeUrl } from "@/lib/pdf-utils";
+import Link from "next/link";
+import { extractImagesFromPDF, zipImages } from "@/lib/pdf-extract-images";
+import { revokeUrl } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function ExtractImagesPage() {
@@ -16,12 +17,14 @@ export default function ExtractImagesPage() {
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [count, setCount] = useState<number | null>(null);
 
   const handleFiles = useCallback((files: File[]) => {
     revokeUrl(resultUrl);
     setFile(files[0]);
     setError(null);
     setResultUrl(null);
+    setCount(null);
   }, [resultUrl]);
 
   const handleRemove = useCallback(() => {
@@ -29,6 +32,7 @@ export default function ExtractImagesPage() {
     setFile(null);
     setError(null);
     setResultUrl(null);
+    setCount(null);
   }, [resultUrl]);
 
   const handleExtract = async () => {
@@ -36,10 +40,11 @@ export default function ExtractImagesPage() {
     setIsLoading(true);
     setError(null);
     try {
-      setProgress("Rendering pages to images…");
-      const blob = await extractImagesAsZip(file);
+      setProgress("Reading embedded images (first run loads pdfcpu)…");
+      const images = await extractImagesFromPDF(file);
       revokeUrl(resultUrl);
-      setResultUrl(URL.createObjectURL(blob));
+      setCount(images.length);
+      setResultUrl(images.length ? URL.createObjectURL(await zipImages(images)) : null);
       setProgress(null);
       await addHistoryEntry({ tool: "Extract Images", fileName: file.name, size: file.size });
     } catch (err) {
@@ -63,13 +68,14 @@ export default function ExtractImagesPage() {
     setFile(null);
     setError(null);
     setResultUrl(null);
+    setCount(null);
     setProgress(null);
   };
 
   return (
     <ToolLayout
       title="Extract Images"
-      description="Export every page as a high-quality PNG in a ZIP archive"
+      description="Save the photos and graphics embedded in a PDF, in their original quality"
       icon={ImageIcon}
     >
       <div className="space-y-5">
@@ -82,7 +88,12 @@ export default function ExtractImagesPage() {
         <EncryptedNotice file={file} />
 
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Each page is rendered as a PNG (2× scale). Best for scanned documents and page snapshots.
+          Images are copied out as stored in the file, without re-rendering. To save whole pages as
+          pictures, use{" "}
+          <Link href="/pdf-to-jpg" className="underline underline-offset-2 hover:text-foreground">
+            PDF to JPG
+          </Link>
+          .
         </p>
 
         {error && (
@@ -98,7 +109,7 @@ export default function ExtractImagesPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              ZIP ready with page images
+              {count === 1 ? "1 image found" : `${count} images found`}
             </div>
             <Button onClick={handleDownload} className="w-full">
               <Download className="h-4 w-4 mr-2" /> Download ZIP
@@ -106,7 +117,17 @@ export default function ExtractImagesPage() {
           </div>
         )}
 
-        {!resultUrl ? (
+        {count === 0 && (
+          <div className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+            This PDF has no embedded images. Its pages are text or vector drawings. Use{" "}
+            <Link href="/pdf-to-jpg" className="text-foreground underline underline-offset-2">
+              PDF to JPG
+            </Link>{" "}
+            to save the pages as pictures.
+          </div>
+        )}
+
+        {count === null ? (
           <Button onClick={handleExtract} disabled={!file || isLoading} className="w-full">
             {isLoading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Extracting…</>

@@ -7,7 +7,7 @@ Privacy-first PDF toolkit that runs entirely in your browser. Files never upload
 - **Next.js 16** (App Router) + React 19 + Tailwind CSS 4
 - **pdf-lib** - create/edit PDFs
 - **pdf.js** - render & text extract
-- **pdfcpu-wasm** - unlock / protect / repair fallback
+- **pdfcpu-wasm** - unlock / protect / lossless compress / image extraction / repair fallback
 - **Fabric.js** - annotation canvas
 - **html2canvas**, **JSZip**, **diff**
 
@@ -15,7 +15,7 @@ Privacy-first PDF toolkit that runs entirely in your browser. Files never upload
 
 | Category | Tools |
 |----------|--------|
-| Organize | Merge, Split (ZIP), Organize, Compress (lossy), Repair |
+| Organize | Merge, Split (ZIP), Organize, Compress (lossless or image-based), Repair |
 | To PDF | JPG→PDF, HTML→PDF, Scan |
 | From PDF | PDF→JPG, Extract Text, Extract Images, PDF/A metadata (experimental) |
 | Edit | Edit/annotate, Rotate, Page numbers, Watermark (text/image), Crop (hard/soft), Forms, Metadata |
@@ -23,7 +23,7 @@ Privacy-first PDF toolkit that runs entirely in your browser. Files never upload
 
 ## Honest limitations
 
-- **Compress / Edit export / hard crop / redact** rasterize pages → text/links may be lost
+- **Compress (image modes) / Edit export / hard crop / redact** rasterize pages → text/links may be lost
 - **Sign** is a visual stamp, not a certificate digital signature
 - **PDF/A** only adds identification XMP (not full archival compliance)
 - **HTML→PDF** renders as images (not selectable text)

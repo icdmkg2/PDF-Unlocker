@@ -27,7 +27,7 @@ export const toolSections: ToolSection[] = [
       { label: "Merge", desc: "Combine PDFs into one file", href: "/merge", icon: GitMerge },
       { label: "Split", desc: "Extract pages or ranges", href: "/split", icon: Scissors },
       { label: "Organize", desc: "Reorder and delete pages", href: "/organize", icon: LayoutGrid },
-      { label: "Compress", desc: "Shrink file size", href: "/compress", icon: Minimize2 },
+      { label: "Compress", desc: "Shrink size, keep text", href: "/compress", icon: Minimize2 },
       { label: "Repair", desc: "Rebuild broken structure", href: "/repair", icon: Wrench },
     ],
   },
@@ -66,7 +66,7 @@ export const toolSections: ToolSection[] = [
     tools: [
       { label: "PDF to JPG", desc: "Pages as images", href: "/pdf-to-jpg", icon: Images },
       { label: "Extract text", desc: "Save text as .txt", href: "/extract-text", icon: FileType },
-      { label: "Extract images", desc: "Pages as a PNG ZIP", href: "/extract-images", icon: ImageLucide },
+      { label: "Extract images", desc: "Embedded images, original quality", href: "/extract-images", icon: ImageLucide },
       { label: "PDF/A metadata", desc: "Experimental XMP tags", href: "/pdf-to-pdfa", icon: Archive },
     ],
   },
