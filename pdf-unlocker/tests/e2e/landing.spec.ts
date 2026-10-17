@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { makePdf } from "../helpers";
 
 test("landing page lists every tool without the app sidebar", async ({ page }) => {
   await page.goto("/");
@@ -27,4 +28,29 @@ test("manifest and icons are served", async ({ request }) => {
   }
   expect((await request.get("/icon.svg")).ok()).toBe(true);
   expect((await request.get("/logo.svg")).ok()).toBe(true);
+});
+
+test("dropping a PDF on the landing page suggests tools and opens one with the file loaded", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#landing-file").setInputFiles({
+    name: "Quarterly report.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(await makePdf(4)),
+  });
+  const suggestions = page.getByRole("list", { name: "Suggested tools" });
+  await expect(page.getByText("Quarterly report", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^4 pages · /)).toBeVisible();
+  await suggestions.getByRole("button", { name: /Split/ }).click();
+  await expect(page).toHaveURL(/\/split$/);
+  await expect(page.getByText("Quarterly report.pdf")).toBeVisible();
+});
+
+test("the catalog filter narrows the tool list", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder("Find a tool").fill("password");
+  const links = page.locator("#tools ul a");
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toContainText("Unlock");
+  await page.getByPlaceholder("Find a tool").fill("zzz");
+  await expect(page.getByText("No tool matches")).toBeVisible();
 });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UploadCloud, CheckCircle2, X } from "lucide-react";
+import { takeHandoff } from "@/lib/handoff";
 
 interface PdfDropzoneProps {
   onFiles: (files: File[]) => void;
@@ -21,6 +22,12 @@ export function PdfDropzone({
 }: PdfDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // A file dropped on the landing page arrives here when its tool opens.
+  useEffect(() => {
+    const handed = takeHandoff();
+    if (handed) onFiles(multiple ? handed : handed.slice(0, 1));
+  }, [onFiles, multiple]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
