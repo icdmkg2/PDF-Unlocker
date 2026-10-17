@@ -1,5 +1,18 @@
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
 
+/**
+ * Where to put the origin of a w×h box, rotated by `rotation` degrees
+ * counter-clockwise about that origin, so the box's middle lands on (cx, cy).
+ * pdf-lib rotates text and images around their bottom-left corner.
+ */
+export function centeredOrigin(cx: number, cy: number, w: number, h: number, rotation: number) {
+  const t = (rotation * Math.PI) / 180;
+  return {
+    x: cx - (w / 2) * Math.cos(t) + (h / 2) * Math.sin(t),
+    y: cy - (w / 2) * Math.sin(t) - (h / 2) * Math.cos(t),
+  };
+}
+
 export async function addWatermark(
   file: File,
   options: {
@@ -53,8 +66,7 @@ export async function addWatermark(
         }
       } else {
         page.drawImage(embeddedImg, {
-          x: (width - w) / 2,
-          y: (height - h) / 2,
+          ...centeredOrigin(width / 2, height / 2, w, h, options.rotation),
           width: w,
           height: h,
           opacity: options.opacity,
@@ -83,9 +95,9 @@ export async function addWatermark(
         }
       }
     } else {
+      // Center the visible glyphs: cap height is about 0.7 of the font size.
       page.drawText(options.text, {
-        x: (width - textWidth) / 2,
-        y: (height - options.fontSize) / 2,
+        ...centeredOrigin(width / 2, height / 2, textWidth, options.fontSize * 0.7, options.rotation),
         size: options.fontSize,
         font,
         color: rgb(r, g, b),

@@ -1,10 +1,14 @@
 const DB_NAME = "pdf-studio";
 const STORE = "history";
 const MAX_ENTRIES = 30;
+export const HISTORY_EVENT = "pdf-studio:history-changed";
 
+/** A record of work done, kept in this browser only. File contents are never stored. */
 export interface HistoryEntry {
   id: string;
   tool: string;
+  /** Path of the tool page, for linking back. Missing on entries saved before it existed. */
+  href?: string;
   fileName: string;
   createdAt: number;
   size: number;
@@ -24,11 +28,16 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function addHistoryEntry(entry: Omit<HistoryEntry, "id" | "createdAt">): Promise<void> {
+function notify() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(HISTORY_EVENT));
+}
+
+export async function addHistoryEntry(entry: Omit<HistoryEntry, "id" | "createdAt" | "href">): Promise<void> {
   try {
     const db = await openDb();
     const full: HistoryEntry = {
       ...entry,
+      href: typeof window !== "undefined" ? window.location.pathname : undefined,
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: Date.now(),
     };
@@ -40,6 +49,7 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, "id" | "createdA
     });
     await trimHistory(db);
     db.close();
+    notify();
   } catch {
     // IndexedDB may be blocked; ignore
   }
@@ -89,6 +99,23 @@ export async function clearHistory(): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
     db.close();
+    notify();
+  } catch {
+    // ignore
+  }
+}
+
+export async function deleteHistoryEntry(id: string): Promise<void> {
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    notify();
   } catch {
     // ignore
   }

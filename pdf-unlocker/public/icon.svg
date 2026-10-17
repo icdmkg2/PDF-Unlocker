@@ -1,7 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="6" fill="#f2efe9"/>
-  <!-- Serif-style P mark -->
+  <!-- Favicon cut of the paper stack: one back sheet instead of two, so it holds at 16px -->
+  <rect width="32" height="32" rx="6" fill="#0c0c0c"/>
+  <rect x="11" y="10" width="15.5" height="18" rx="1.2" stroke="#8a8680" stroke-width="1.8"/>
+  <rect x="5" y="4" width="16" height="19" rx="1.2" fill="#f2efe9"/>
   <path
+    transform="translate(1.55 2.425) scale(0.7)"
     fill="#0c0c0c"
     d="M10.5 7.25h6.1c3.35 0 5.55 1.85 5.55 4.7 0 2.95-2.2 4.85-5.65 4.85H13.4V24.5H10.5V7.25zm2.9 2.35v5.55h3c1.85 0 2.9-.95 2.9-2.75s-1.05-2.8-2.95-2.8H13.4z"
   />

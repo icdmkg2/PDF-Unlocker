@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { DocumentTitle } from "@/components/document-title";
+import { ServiceWorker } from "@/components/service-worker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,8 +28,13 @@ export const metadata: Metadata = {
     "Browser-native PDF workbench - merge, edit, unlock, redact, compress. 100% client-side, no uploads.",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icon.svg" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
+  appleWebApp: { capable: true, title: "PDF Studio", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c0c0c",
 };
 
 export default function RootLayout({
@@ -42,6 +48,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
         <DocumentTitle />
+        <ServiceWorker />
         <div className="flex h-screen overflow-hidden bg-background">
           <Sidebar />
           <main className="flex-1 overflow-auto">{children}</main>

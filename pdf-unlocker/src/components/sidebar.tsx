@@ -2,79 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
-import {
-  GitMerge, Scissors, Minimize2, Wrench, LayoutGrid,
-  ImageIcon, Globe, Camera, Images, Archive,
-  PenTool, RotateCw, Hash, Droplets, Crop,
-  Unlock, Lock, PenLine, EyeOff, GitCompare,
-  Menu, X, ChevronDown, ChevronRight,
-  FileType, Tags, ClipboardList, Image as ImageLucide,
-} from "lucide-react";
+import { useState } from "react";
+import { Menu, X, ChevronDown, ChevronRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { toolSections as navSections, toolByHref, type Tool } from "@/lib/tools";
+import { FavoriteButton, useFavorites } from "@/components/favorites";
 
-const navSections = [
-  {
-    category: "Organize & Optimize",
-    tools: [
-      { label: "Merge PDF", href: "/merge", icon: GitMerge },
-      { label: "Split PDF", href: "/split", icon: Scissors },
-      { label: "Organize PDF", href: "/organize", icon: LayoutGrid },
-      { label: "Compress PDF", href: "/compress", icon: Minimize2 },
-      { label: "Repair PDF", href: "/repair", icon: Wrench },
-    ],
-  },
-  {
-    category: "Convert TO PDF",
-    tools: [
-      { label: "JPG to PDF", href: "/jpg-to-pdf", icon: ImageIcon },
-      { label: "HTML to PDF", href: "/html-to-pdf", icon: Globe },
-      { label: "Scan to PDF", href: "/scan", icon: Camera },
-    ],
-  },
-  {
-    category: "Convert FROM PDF",
-    tools: [
-      { label: "PDF to JPG", href: "/pdf-to-jpg", icon: Images },
-      { label: "Extract Text", href: "/extract-text", icon: FileType },
-      { label: "Extract Images", href: "/extract-images", icon: ImageLucide },
-      { label: "PDF/A Metadata", href: "/pdf-to-pdfa", icon: Archive },
-    ],
-  },
-  {
-    category: "Edit & Annotate",
-    tools: [
-      { label: "Edit PDF", href: "/edit", icon: PenTool },
-      { label: "Rotate PDF", href: "/rotate", icon: RotateCw },
-      { label: "Page Numbers", href: "/page-numbers", icon: Hash },
-      { label: "Add Watermark", href: "/watermark", icon: Droplets },
-      { label: "Crop PDF", href: "/crop", icon: Crop },
-      { label: "Fill Forms", href: "/forms", icon: ClipboardList },
-      { label: "Metadata", href: "/metadata", icon: Tags },
-    ],
-  },
-  {
-    category: "Security & Signatures",
-    tools: [
-      { label: "Unlock PDF", href: "/unlock", icon: Unlock },
-      { label: "Protect PDF", href: "/protect", icon: Lock },
-      { label: "Sign PDF", href: "/sign", icon: PenLine },
-      { label: "Redact PDF", href: "/redact", icon: EyeOff },
-      { label: "Compare PDF", href: "/compare", icon: GitCompare },
-    ],
-  },
-];
+function NavItem({ tool, active, onClose }: { tool: Tool; active: boolean; onClose?: () => void }) {
+  const Icon = tool.icon;
+  return (
+    <li className={cn("group flex items-center rounded-md transition-colors", active ? "bg-primary/10" : "hover:bg-sidebar-accent")}>
+      <Link
+        href={tool.href}
+        onClick={onClose}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-xs transition-colors",
+          active ? "font-medium text-primary" : "text-muted-foreground group-hover:text-foreground"
+        )}
+      >
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="truncate">{tool.label}</span>
+      </Link>
+      <FavoriteButton href={tool.href} label={tool.label} className="mr-0.5" />
+    </li>
+  );
+}
 
 function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => void }) {
+  const favorites = useFavorites();
   const activeCat = navSections.find((s) => s.tools.some((t) => t.href === pathname))?.category;
   const [open, setOpen] = useState<Set<string>>(
     () => new Set(navSections.map((s) => s.category))
   );
 
-  useEffect(() => {
-    if (activeCat) setOpen((prev) => new Set([...prev, activeCat]));
-  }, [activeCat]);
+  // Re-open the active tool's section when navigation moves into it.
+  const [prevActive, setPrevActive] = useState(activeCat);
+  if (activeCat !== prevActive) {
+    setPrevActive(activeCat);
+    if (activeCat && !open.has(activeCat)) setOpen(new Set([...open, activeCat]));
+  }
 
   const toggle = (cat: string) => {
     setOpen((prev) => {
@@ -88,12 +56,7 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
   return (
     <div className="flex h-full flex-col bg-sidebar">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-sidebar-border px-3.5 py-4">
-        <Logo
-          size={28}
-          subtitle="Local"
-          onClick={onClose}
-          className="gap-2.5"
-        />
+        <Logo size={26} onClick={onClose} />
         {onClose && (
           <button
             onClick={onClose}
@@ -105,20 +68,34 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
         )}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+      <nav className="flex-1 space-y-2 overflow-y-auto px-2 py-3" aria-label="Tools">
+        {favorites.length > 0 && (
+          <div>
+            <p className="font-label flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-muted-foreground">
+              <Star className="h-2.5 w-2.5" fill="#f5c542" stroke="#f5c542" /> Favorites
+            </p>
+            <ul className="mb-1 mt-0.5 space-y-0.5" aria-label="Favorites">
+              {favorites.map((href) => (
+                <NavItem key={href} tool={toolByHref.get(href)!} active={pathname === href} onClose={onClose} />
+              ))}
+            </ul>
+          </div>
+        )}
+
         {navSections.map((section) => {
           const isOpen = open.has(section.category);
           return (
             <div key={section.category}>
               <button
                 onClick={() => toggle(section.category)}
+                aria-expanded={isOpen}
                 className="group flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-sidebar-accent"
               >
                 <span className="font-label text-[10px] text-muted-foreground transition-colors group-hover:text-foreground">
                   {section.category}
                 </span>
                 {isOpen ? (
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  <ChevronDown className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 ) : (
                   <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 )}
@@ -126,38 +103,15 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
 
               {isOpen && (
                 <ul className="mb-1 mt-0.5 space-y-0.5">
-                  {section.tools.map(({ label, href, icon: Icon }) => {
-                    const active = pathname === href;
-                    return (
-                      <li key={href}>
-                        <Link
-                          href={href}
-                          onClick={onClose}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-colors",
-                            active
-                              ? "bg-primary/10 font-medium text-primary"
-                              : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-                          )}
-                        >
-                          <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-                          {label}
-                        </Link>
-                      </li>
-                    );
-                  })}
+                  {section.tools.map((tool) => (
+                    <NavItem key={tool.href} tool={tool} active={pathname === tool.href} onClose={onClose} />
+                  ))}
                 </ul>
               )}
             </div>
           );
         })}
       </nav>
-
-      <div className="flex-shrink-0 border-t border-sidebar-border px-4 py-3">
-        <p className="font-label text-center text-[9px] text-muted-foreground">
-          On-device · No uploads
-        </p>
-      </div>
     </div>
   );
 }
@@ -165,6 +119,9 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // The landing page carries its own header and full tool catalog.
+  if (pathname === "/") return null;
 
   return (
     <>

@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored, minified pdf.js worker; not our code.
+    "public/pdf.worker.min.mjs",
+    // OCR engine copied from node_modules at build time.
+    "public/ocr/**",
+    // Test output
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ]);
 

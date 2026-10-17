@@ -55,3 +55,23 @@ export async function splitToZip(parts: { name: string; bytes: Uint8Array }[]): 
   for (const p of parts) zip.file(p.name, p.bytes);
   return zip.generateAsync({ type: "blob" });
 }
+
+export type SplitMode = "extract" | "cut" | "each" | "ranges";
+
+/** Turn the current mode and selection into groups of 0-based page indices. */
+export function planParts(mode: SplitMode, pageCount: number, selected: Set<number>, ranges: string): number[][] {
+  const all = Array.from({ length: pageCount }, (_, i) => i);
+  if (mode === "each") return all.map((i) => [i]);
+  if (mode === "extract") return selected.size ? [[...selected].sort((a, b) => a - b)] : [];
+  if (mode === "cut") {
+    const starts = new Set([0, ...selected]);
+    const parts: number[][] = [];
+    for (const i of all) {
+      if (starts.has(i)) parts.push([]);
+      parts[parts.length - 1].push(i);
+    }
+    return parts.length > 1 ? parts : [];
+  }
+  return ranges.trim() ? parseRanges(ranges, pageCount).filter((r) => r.length) : [];
+}
+

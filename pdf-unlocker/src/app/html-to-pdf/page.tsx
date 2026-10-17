@@ -3,15 +3,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
-import { Globe, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { dataUrlToBytes, revokeUrl } from "@/lib/pdf-utils";
+import { ResultCard } from "@/components/result-card";
+import { ErrorNote, Step, Steps, Working } from "@/components/steps";
+import { Globe } from "lucide-react";
+import { dataUrlToBytes } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function HtmlToPdfPage() {
   const [html, setHtml] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
 
   const handleConvert = async () => {
     if (!html.trim()) return;
@@ -72,8 +74,7 @@ export default function HtmlToPdfPage() {
       }
 
       const bytes = await doc.save();
-      revokeUrl(resultUrl);
-      setResultUrl(URL.createObjectURL(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" })));
+      setResult(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" }));
       await addHistoryEntry({ tool: "HTML to PDF", fileName: "html.pdf", size: bytes.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
@@ -82,70 +83,39 @@ export default function HtmlToPdfPage() {
     }
   };
 
-  const handleDownload = () => {
-    if (!resultUrl) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = "html.pdf";
-    a.click();
-  };
-
   const reset = () => {
     setHtml("");
     setError(null);
-    revokeUrl(resultUrl);
-    setResultUrl(null);
+    setResult(null);
   };
 
   return (
-    <ToolLayout
-      title="HTML to PDF"
-      description="Paste HTML and render it to a multi-page A4 PDF"
-      icon={Globe}
-      notice="Renders HTML as images (not selectable text). External CSS/images may not load due to browser CORS."
-    >
-      <div className="space-y-5">
-        <textarea
-          value={html}
-          onChange={(e) => setHtml(e.target.value)}
-          placeholder="<h1>Hello World</h1><p>Your HTML here...</p>"
-          rows={12}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
-        />
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              PDF ready
-            </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download PDF
-            </Button>
-          </div>
-        )}
-
-        {!resultUrl ? (
+    <ToolLayout title="HTML to PDF" description="Paste HTML and render it as A4 pages" icon={Globe} medium>
+      <Steps>
+        <Step n={1} title="Paste HTML" state={result ? "done" : "current"} summary={`${html.length.toLocaleString()} characters`} onChange={() => setResult(null)}>
+          <textarea
+            id="html-input"
+            aria-label="HTML to convert"
+            value={html}
+            onChange={(e) => setHtml(e.target.value)}
+            placeholder="<h1>Hello World</h1><p>Your HTML here...</p>"
+            rows={12}
+            className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Pages are rendered as images, so text in the PDF won&apos;t be selectable. Images and stylesheets from other sites may not load.
+          </p>
+          {isLoading && <Working>Rendering pages…</Working>}
+          {error && <ErrorNote>{error}</ErrorNote>}
           <Button onClick={handleConvert} disabled={!html.trim() || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Converting…</>
-            ) : (
-              <><Globe className="h-4 w-4 mr-2" /> Convert to PDF</>
-            )}
+            <Globe className="h-4 w-4" /> Convert to PDF
           </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Start Over
-          </Button>
-        )}
-      </div>
+        </Step>
+
+        <Step n={2} title="Save" state={result ? "current" : "todo"}>
+          {result && <ResultCard verb="Rendered" blob={result} fileName="page.pdf" onReset={reset} resetLabel="Convert more HTML" />}
+        </Step>
+      </Steps>
     </ToolLayout>
   );
 }

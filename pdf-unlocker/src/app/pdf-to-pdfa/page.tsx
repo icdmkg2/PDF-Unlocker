@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
-import { Archive, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ResultCard, formatSize } from "@/components/result-card";
+import { ErrorNote, Step, Steps, Working } from "@/components/steps";
+import { Archive } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
-import { revokeUrl } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 /**
@@ -16,27 +17,25 @@ import { addHistoryEntry } from "@/lib/local-history";
  */
 export default function PdfToPdfAPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
 
   const handleFiles = useCallback((files: File[]) => {
-    revokeUrl(resultUrl);
     setFile(files[0]);
     setError(null);
-    setResultUrl(null);
-  }, [resultUrl]);
+    setResult(null);
+  }, []);
 
-  const handleRemove = useCallback(() => {
-    revokeUrl(resultUrl);
+  const reset = () => {
     setFile(null);
     setError(null);
-    setResultUrl(null);
-  }, [resultUrl]);
+    setResult(null);
+  };
 
   const handleConvert = async () => {
     if (!file) return;
-    setIsLoading(true);
+    setWorking(true);
     setError(null);
     try {
       const bytes = await file.arrayBuffer();
@@ -68,75 +67,47 @@ export default function PdfToPdfAPage() {
       doc.catalog.set(doc.context.obj("Metadata"), xmpRef);
 
       const saved = await doc.save();
-      revokeUrl(resultUrl);
-      setResultUrl(URL.createObjectURL(new Blob([saved as Uint8Array<ArrayBuffer>], { type: "application/pdf" })));
+      setResult(new Blob([saved as Uint8Array<ArrayBuffer>], { type: "application/pdf" }));
       await addHistoryEntry({ tool: "PDF/A metadata", fileName: file.name, size: file.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
     } finally {
-      setIsLoading(false);
+      setWorking(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!resultUrl || !file) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = file.name.replace(/\.pdf$/i, "_pdfa_meta.pdf");
-    a.click();
-  };
-
-  const reset = () => handleRemove();
-
   return (
-    <ToolLayout
-      title="PDF/A Metadata"
-      description="Experimental: embed PDF/A-2b identification metadata"
-      icon={Archive}
-      notice="This does not create a fully compliant PDF/A file. It only adds PDF/A-2b XMP identification. Validate with a dedicated PDF/A validator before archival use. Fonts, color profiles, and transparency are not converted."
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
-        />
-        <EncryptedNotice file={file} />
+    <ToolLayout title="PDF/A Metadata" description="Experimental: tag a PDF as PDF/A-2b" icon={Archive} medium>
+      <Steps>
+        <Step n={1} title="Add a PDF" state={file ? "done" : "current"} summary={file && `${file.name} · ${formatSize(file.size)}`} onChange={reset}>
+          <PdfDropzone onFiles={handleFiles} label="Drop the PDF to tag" />
+        </Step>
 
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Metadata embedded (experimental)
-            </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download PDF
-            </Button>
-          </div>
-        )}
-
-        {!resultUrl ? (
-          <Button onClick={handleConvert} disabled={!file || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</>
-            ) : (
-              <><Archive className="h-4 w-4 mr-2" /> Add PDF/A Metadata</>
-            )}
+        <Step n={2} title="Add the tags" state={!file ? "todo" : result ? "done" : "current"}>
+          <EncryptedNotice file={file} />
+          <p className="rounded-lg border border-[#3d3420] bg-[#1a1610] px-3 py-2 text-xs leading-relaxed text-[#d4c4a0]">
+            This only adds PDF/A-2b identification. It does not convert fonts, color profiles or transparency,
+            so the file is not fully compliant. Check it with a PDF/A validator before archiving.
+          </p>
+          {working && <Working>Adding tags…</Working>}
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Button onClick={handleConvert} disabled={working} className="w-full">
+            <Archive className="h-4 w-4" /> Add PDF/A tags
           </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Start Over
-          </Button>
-        )}
-      </div>
+        </Step>
+
+        <Step n={3} title="Save" state={result ? "current" : "todo"}>
+          {result && file && (
+            <ResultCard
+              verb="Tagged (experimental)"
+              blob={result}
+              fileName={file.name.replace(/\.pdf$/i, "") + "_pdfa.pdf"}
+              onReset={reset}
+              resetLabel="Tag another"
+            />
+          )}
+        </Step>
+      </Steps>
     </ToolLayout>
   );
 }

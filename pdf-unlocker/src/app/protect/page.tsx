@@ -6,185 +6,182 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { Lock, Eye, EyeOff, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ResultCard, formatSize } from "@/components/result-card";
+import { ErrorNote, Step, Steps, Working } from "@/components/steps";
+import { Lock, Eye, EyeOff } from "lucide-react";
 import { protectPDF } from "@/lib/pdf-protect";
+import {
+  RememberPassword,
+  SavedPasswordPicker,
+  useSavedPasswords,
+  type RememberChoice,
+} from "@/components/saved-passwords";
+import { markPasswordUsed, savePassword } from "@/lib/saved-passwords";
+import { addHistoryEntry } from "@/lib/local-history";
+
+const NO_REMEMBER: RememberChoice = { remember: false, name: "" };
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        placeholder={placeholder}
+        value={value}
+        autoComplete="new-password"
+        onChange={(e) => onChange(e.target.value)}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        aria-label={show ? "Hide password" : "Show password"}
+        onClick={() => setShow(!show)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
 
 export default function ProtectPage() {
+  const saved = useSavedPasswords();
+  const [remember, setRemember] = useState<RememberChoice>(NO_REMEMBER);
   const [file, setFile] = useState<File | null>(null);
   const [userPw, setUserPw] = useState("");
   const [userPwConfirm, setUserPwConfirm] = useState("");
   const [ownerPw, setOwnerPw] = useState("");
-  const [showUser, setShowUser] = useState(false);
-  const [showOwner, setShowOwner] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
+  const [savedName, setSavedName] = useState<string | null>(null);
 
   const handleFiles = useCallback((files: File[]) => {
     setFile(files[0]);
     setError(null);
-    setResultUrl(null);
+    setResult(null);
   }, []);
-
-  const handleRemove = useCallback(() => {
-    setFile(null);
-    setError(null);
-    setResultUrl(null);
-  }, []);
-
-  const handleProtect = async () => {
-    if (!file || !userPw) return;
-    if (userPw !== userPwConfirm) {
-      setError("User passwords do not match.");
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    setProgress("Loading pdfcpu (first time may take a moment)...");
-    try {
-      setProgress("Encrypting PDF...");
-      const bytes = await protectPDF(file, userPw, ownerPw);
-      const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      setResultUrl(URL.createObjectURL(blob));
-      setProgress(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Encryption failed.");
-      setProgress(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDownload = () => {
-    if (!resultUrl || !file) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = `protected_${file.name}`;
-    a.click();
-  };
 
   const reset = () => {
     setFile(null);
     setUserPw("");
     setUserPwConfirm("");
     setOwnerPw("");
+    setRemember(NO_REMEMBER);
     setError(null);
-    setResultUrl(null);
-    setProgress(null);
+    setResult(null);
+    setSavedName(null);
+  };
+
+  const handleProtect = async () => {
+    if (!file || !userPw) return;
+    if (userPw !== userPwConfirm) {
+      setError("The two passwords don't match.");
+      return;
+    }
+    setWorking(true);
+    setError(null);
+    try {
+      const bytes = await protectPDF(file, userPw, ownerPw);
+      const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
+      setResult(blob);
+      const existing = saved.find((p) => p.password === userPw);
+      if (remember.remember && !existing) {
+        savePassword(userPw, remember.name);
+        setSavedName(remember.name.trim() || "your saved passwords");
+      } else {
+        setSavedName(existing?.name ?? null);
+      }
+      markPasswordUsed(userPw);
+      await addHistoryEntry({ tool: "Protect", fileName: file.name, size: blob.size });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Encryption failed.");
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
-    <ToolLayout
-      title="Protect PDF"
-      description="Encrypt a PDF with a password to prevent unauthorized access"
-      icon={Lock}
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
-        />
+    <ToolLayout title="Protect PDF" description="Lock a PDF so it needs a password to open" icon={Lock} medium>
+      <Steps>
+        <Step n={1} title="Add a PDF" state={file ? "done" : "current"} summary={file && `${file.name} · ${formatSize(file.size)}`} onChange={reset}>
+          <PdfDropzone onFiles={handleFiles} label="Drop the PDF to lock" />
+        </Step>
 
-        {/* User password */}
-        <div className="space-y-1.5">
-          <Label htmlFor="userPw">User Password <span className="text-destructive">*</span></Label>
-          <div className="relative">
-            <Input
-              id="userPw"
-              type={showUser ? "text" : "password"}
-              placeholder="Password to open the PDF"
-              value={userPw}
-              onChange={(e) => setUserPw(e.target.value)}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowUser(!showUser)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showUser ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+        <Step
+          n={2}
+          title="Set a password"
+          state={!file ? "todo" : result ? "done" : "current"}
+          summary="AES-256"
+          onChange={() => setResult(null)}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="userPw">Password to open <span className="text-destructive">*</span></Label>
+            <PasswordInput id="userPw" value={userPw} onChange={setUserPw} placeholder="Needed to open the PDF" />
           </div>
-        </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="userPwConfirm">Confirm password</Label>
+            <PasswordInput id="userPwConfirm" value={userPwConfirm} onChange={setUserPwConfirm} placeholder="Type it again" />
+          </div>
 
-        {/* Confirm user password */}
-        <div className="space-y-1.5">
-          <Label htmlFor="userPwConfirm">Confirm User Password</Label>
-          <Input
-            id="userPwConfirm"
-            type="password"
-            placeholder="Re-enter user password"
-            value={userPwConfirm}
-            onChange={(e) => setUserPwConfirm(e.target.value)}
+          <SavedPasswordPicker
+            selected={userPw}
+            onPick={(pw) => {
+              setUserPw(pw);
+              setUserPwConfirm(pw);
+            }}
           />
-        </div>
+          {userPw && !saved.some((p) => p.password === userPw) && (
+            <RememberPassword id="protect" value={remember} onChange={setRemember} />
+          )}
 
-        {/* Owner password */}
-        <div className="space-y-1.5">
-          <Label htmlFor="ownerPw">Owner Password <span className="text-muted-foreground text-xs">(optional)</span></Label>
-          <div className="relative">
-            <Input
-              id="ownerPw"
-              type={showOwner ? "text" : "password"}
-              placeholder="Password to edit/print the PDF (defaults to user password)"
-              value={ownerPw}
-              onChange={(e) => setOwnerPw(e.target.value)}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowOwner(!showOwner)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showOwner ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">If omitted, the owner password will match the user password</p>
-        </div>
-
-        {progress && (
-          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-            {progress}
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              PDF encrypted successfully!
+          <details className="group rounded-lg border border-border px-3 py-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground group-open:mb-3">
+              Separate owner password (optional)
+            </summary>
+            <div className="space-y-1.5">
+              <Label htmlFor="ownerPw">Owner password</Label>
+              <PasswordInput id="ownerPw" value={ownerPw} onChange={setOwnerPw} placeholder="Defaults to the password above" />
+              <p className="text-xs text-muted-foreground">Some apps ask for this one to change permissions.</p>
             </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download protected PDF
-            </Button>
-          </div>
-        )}
+          </details>
 
-        {!resultUrl ? (
-          <Button onClick={handleProtect} disabled={!file || !userPw || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Encrypting...</>
-            ) : (
-              <><Lock className="h-4 w-4 mr-2" /> Protect PDF</>
-            )}
+          {working && <Working>Encrypting (first run loads pdfcpu)…</Working>}
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Button onClick={handleProtect} disabled={!userPw || working} className="w-full">
+            <Lock className="h-4 w-4" /> Protect PDF
           </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Protect Another PDF
-          </Button>
-        )}
-      </div>
+        </Step>
+
+        <Step n={3} title="Save" state={result ? "current" : "todo"}>
+          {result && file && (
+            <ResultCard
+              verb="Locked"
+              blob={result}
+              fileName={file.name.replace(/\.pdf$/i, "") + "_protected.pdf"}
+              note={
+                savedName
+                  ? `The password is in “${savedName}” on this device.`
+                  : "Keep the password somewhere safe. Without it the file can't be opened, here or anywhere."
+              }
+              onReset={reset}
+              resetLabel="Protect another"
+            />
+          )}
+        </Step>
+      </Steps>
     </ToolLayout>
   );
 }

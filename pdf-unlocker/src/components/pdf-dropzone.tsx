@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UploadCloud, CheckCircle2, X } from "lucide-react";
+import { takeHandoff } from "@/lib/handoff";
+import { noteInput } from "@/lib/versions";
 
 interface PdfDropzoneProps {
   onFiles: (files: File[]) => void;
@@ -10,6 +12,8 @@ interface PdfDropzoneProps {
   label?: string;
   files?: File[];
   onRemove?: (index: number) => void;
+  /** "image" turns this into an image dropzone (JPG, PNG). Defaults to PDF. */
+  kind?: "pdf" | "image";
 }
 
 export function PdfDropzone({
@@ -18,9 +22,23 @@ export function PdfDropzone({
   label,
   files = [],
   onRemove,
+  kind = "pdf",
 }: PdfDropzoneProps) {
+  const matches = (f: File) =>
+    kind === "pdf" ? f.type === "application/pdf" || /\.pdf$/i.test(f.name) : f.type.startsWith("image/");
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // A file dropped on the landing page arrives here when its tool opens.
+  useEffect(() => {
+    if (kind !== "pdf") return;
+    const handed = takeHandoff();
+    if (handed) {
+      const files = multiple ? handed : handed.slice(0, 1);
+      noteInput(files, false);
+      onFiles(files);
+    }
+  }, [onFiles, multiple, kind]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -39,17 +57,22 @@ export function PdfDropzone({
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
-      const dropped = Array.from(e.dataTransfer.files).filter(
-        (f) => f.type === "application/pdf"
-      );
-      if (dropped.length) onFiles(dropped);
+      const dropped = Array.from(e.dataTransfer.files).filter(matches);
+      if (dropped.length) {
+        noteInput(dropped, true);
+        onFiles(dropped);
+      }
     },
-    [onFiles]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onFiles, kind]
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
-    if (selected.length) onFiles(selected);
+    if (selected.length) {
+      noteInput(selected, true);
+      onFiles(selected);
+    }
     e.target.value = "";
   };
 
@@ -74,7 +97,7 @@ export function PdfDropzone({
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept={kind === "pdf" ? ".pdf,application/pdf" : "image/*"}
           multiple={multiple}
           onChange={handleChange}
           className="hidden"
@@ -86,7 +109,7 @@ export function PdfDropzone({
             <UploadCloud className="h-7 w-7 text-muted-foreground" />
           )}
           <p className="text-sm font-medium text-foreground">
-            {label ?? (hasFiles ? "Add more files" : "Drop PDF here")}
+            {label ?? (hasFiles ? "Add more files" : kind === "pdf" ? "Drop PDF here" : "Drop images here")}
           </p>
           <p className="font-label text-[9px] text-muted-foreground">
             or click to browse

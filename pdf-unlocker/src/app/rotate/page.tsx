@@ -2,209 +2,134 @@
 
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { RotateCw, RotateCcw, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { rotatePDF } from "@/lib/pdf-rotate";
-import { PDFDocument } from "pdf-lib";
-import { cn } from "@/lib/utils";
-
-const ANGLES = [
-  { label: "90° CW", value: 90 as const },
-  { label: "180°", value: 180 as const },
-  { label: "90° CCW", value: 270 as const },
-];
+import { EncryptedNotice } from "@/components/encrypted-notice";
+import { ResultCard } from "@/components/result-card";
+import { ErrorNote, Working } from "@/components/steps";
+import { LoadingPages, PageGrid, PanelField, PanelFile, SelectionControls, Workbench, usePdfDoc } from "@/components/workbench";
+import { RotateCw, RotateCcw, Undo2, SlidersHorizontal } from "lucide-react";
+import { rotatePagesBy } from "@/lib/pdf-rotate";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function RotatePage() {
   const [file, setFile] = useState<File | null>(null);
-  const [pageCount, setPageCount] = useState<number | null>(null);
-  const [allPages, setAllPages] = useState(true);
-  const [pageRange, setPageRange] = useState("");
-  const [angle, setAngle] = useState<90 | 180 | 270>(90);
-  const [isLoading, setIsLoading] = useState(false);
+  const { doc, pageCount, loading, error: loadError } = usePdfDoc(file);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [turns, setTurns] = useState<Record<number, number>>({});
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    const f = files[0];
-    setFile(f);
+  const handleFiles = useCallback((files: File[]) => {
+    setFile(files[0]);
+    setSelected(new Set());
+    setTurns({});
     setError(null);
-    setResultUrl(null);
-    try {
-      const bytes = await f.arrayBuffer();
-      const doc = await PDFDocument.load(bytes);
-      setPageCount(doc.getPageCount());
-    } catch {
-      setPageCount(null);
-    }
+    setResult(null);
   }, []);
-
-  const handleRemove = useCallback(() => {
-    setFile(null);
-    setPageCount(null);
-    setError(null);
-    setResultUrl(null);
-  }, []);
-
-  const handleRotate = async () => {
-    if (!file || !pageCount) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      let indices: number[];
-      if (allPages) {
-        indices = Array.from({ length: pageCount }, (_, i) => i);
-      } else {
-        if (!pageRange.trim()) throw new Error("Please enter page numbers or ranges.");
-        indices = parsePageList(pageRange, pageCount);
-      }
-      const bytes = await rotatePDF(file, indices, angle);
-      const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      setResultUrl(URL.createObjectURL(blob));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Rotation failed.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDownload = () => {
-    if (!resultUrl || !file) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = `rotated_${file.name}`;
-    a.click();
-  };
 
   const reset = () => {
     setFile(null);
-    setPageCount(null);
-    setPageRange("");
-    setAllPages(true);
-    setAngle(90);
+    setSelected(new Set());
+    setTurns({});
     setError(null);
-    setResultUrl(null);
+    setResult(null);
+  };
+
+  /** Turn the selected pages, or every page when none are selected. */
+  const turn = (deg: number) => {
+    const targets = selected.size ? [...selected] : Array.from({ length: pageCount }, (_, i) => i);
+    setTurns((prev) => {
+      const next = { ...prev };
+      for (const i of targets) next[i] = (next[i] ?? 0) + deg;
+      return next;
+    });
+  };
+
+  const changed = Object.values(turns).filter((t) => t % 360 !== 0).length;
+
+  const handleSave = async () => {
+    if (!file) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const bytes = await rotatePagesBy(file, turns);
+      const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
+      setResult(blob);
+      void addHistoryEntry({ tool: "Rotate", fileName: file.name, size: blob.size });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rotation failed.");
+    } finally {
+      setWorking(false);
+    }
   };
 
   return (
-    <ToolLayout
-      title="Rotate PDF"
-      description="Rotate pages to the correct orientation"
-      icon={RotateCw}
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
-        />
-
-        {pageCount !== null && (
-          <p className="text-xs text-muted-foreground">
-            Document has <strong className="text-foreground">{pageCount}</strong> pages
-          </p>
-        )}
-
-        {file && (
-          <>
-            {/* Rotation angle */}
-            <div className="space-y-1.5">
-              <Label>Rotation</Label>
-              <div className="flex gap-2">
-                {ANGLES.map((a) => (
-                  <button
-                    key={a.value}
-                    onClick={() => setAngle(a.value)}
-                    className={cn(
-                      "flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors",
-                      angle === a.value
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground"
-                    )}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Pages */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="allPages"
-                  checked={allPages}
-                  onChange={(e) => setAllPages(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="allPages">Apply to all pages</Label>
-              </div>
-
-              {!allPages && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="pages">Specific pages</Label>
-                  <Input
-                    id="pages"
-                    placeholder={`e.g. 1, 3, 5-7`}
-                    value={pageRange}
-                    onChange={(e) => setPageRange(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Pages rotated successfully!
-            </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download rotated PDF
+    <ToolLayout title="Rotate PDF" description="Pick pages and turn them; you see the result before saving" icon={RotateCw} wide>
+      {!file ? (
+        <PdfDropzone onFiles={handleFiles} label="Drop the PDF to rotate" />
+      ) : result ? (
+        <ResultCard
+          verb="Rotated"
+          blob={result}
+          fileName={file.name.replace(/\.pdf$/i, "") + "_rotated.pdf"}
+          facts={[{ label: "Pages turned", value: String(changed) }]}
+          actions={
+            <Button variant="outline" onClick={() => setResult(null)}>
+              <SlidersHorizontal className="h-4 w-4" /> Adjust
             </Button>
-          </div>
-        )}
-
-        {!resultUrl ? (
-          <Button onClick={handleRotate} disabled={!file || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Rotating...</>
-            ) : (
-              <><RotateCw className="h-4 w-4 mr-2" /> Rotate PDF</>
-            )}
-          </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Rotate Another PDF
-          </Button>
-        )}
-      </div>
+          }
+          onReset={reset}
+          resetLabel="Rotate another"
+        />
+      ) : (
+        <Workbench
+          panel={
+            <>
+              <PanelFile file={file} pageCount={pageCount} onChange={reset} />
+              <EncryptedNotice file={file} />
+              <PanelField label={selected.size ? `Turn ${selected.size} selected page${selected.size === 1 ? "" : "s"}` : "Turn all pages"}>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button variant="outline" size="sm" onClick={() => turn(-90)} aria-label="Turn left 90 degrees">
+                    <RotateCcw className="h-4 w-4" /> 90°
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => turn(90)} aria-label="Turn right 90 degrees">
+                    <RotateCw className="h-4 w-4" /> 90°
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => turn(180)} aria-label="Turn 180 degrees">
+                    180°
+                  </Button>
+                </div>
+              </PanelField>
+              {changed > 0 && (
+                <button type="button" onClick={() => setTurns({})} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                  <Undo2 className="h-3.5 w-3.5" /> Undo all turns
+                </button>
+              )}
+              {working && <Working>Saving…</Working>}
+              {(error || loadError) && <ErrorNote>{error || loadError}</ErrorNote>}
+              <Button onClick={handleSave} disabled={!changed || working} className="w-full">
+                Save rotated PDF
+              </Button>
+              {!changed && <p className="text-center text-xs text-muted-foreground">Turn at least one page first.</p>}
+            </>
+          }
+          header={doc && <SelectionControls count={pageCount} selected={selected} onSelect={setSelected} />}
+        >
+          {loading || !doc ? (
+            <LoadingPages />
+          ) : (
+            <PageGrid
+              doc={doc}
+              order={Array.from({ length: pageCount }, (_, i) => i)}
+              selected={selected}
+              onSelect={setSelected}
+              rotationOf={(i) => turns[i] ?? 0}
+            />
+          )}
+        </Workbench>
+      )}
     </ToolLayout>
   );
-}
-
-function parsePageList(input: string, total: number): number[] {
-  const indices = new Set<number>();
-  const parts = input.split(",").map((s) => s.trim()).filter(Boolean);
-  for (const part of parts) {
-    const match = part.match(/^(\d+)(?:-(\d+))?$/);
-    if (!match) throw new Error(`Invalid page: "${part}"`);
-    const start = parseInt(match[1]);
-    const end = match[2] ? parseInt(match[2]) : start;
-    for (let i = start; i <= Math.min(end, total); i++) indices.add(i - 1);
-  }
-  return Array.from(indices);
 }

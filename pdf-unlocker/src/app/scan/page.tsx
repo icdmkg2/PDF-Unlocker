@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
-import { Camera, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, ImageIcon, QrCode } from "lucide-react";
+import { Camera, ImageIcon, QrCode, X } from "lucide-react";
+import { PdfDropzone } from "@/components/pdf-dropzone";
+import { ResultCard } from "@/components/result-card";
+import { ErrorNote, Step, Steps, Working } from "@/components/steps";
 import { imagesToPDF } from "@/lib/images-to-pdf";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 type Tab = "camera" | "upload" | "qr";
 
@@ -15,7 +19,7 @@ export default function ScanPage() {
   const [capturedImages, setCapturedImages] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -64,12 +68,6 @@ export default function ScanPage() {
     }, "image/jpeg", 0.92);
   };
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/"));
-    if (files.length) setCapturedImages((prev) => [...prev, ...files]);
-    e.target.value = "";
-  };
-
   const handleConvert = async () => {
     if (!capturedImages.length) return;
     setIsLoading(true);
@@ -77,7 +75,9 @@ export default function ScanPage() {
     try {
       const bytes = await imagesToPDF(capturedImages);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      setResultUrl(URL.createObjectURL(blob));
+      setResult(blob);
+      stopCamera();
+      void addHistoryEntry({ tool: "Scan", fileName: `${capturedImages.length} scanned pages`, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
     } finally {
@@ -85,18 +85,10 @@ export default function ScanPage() {
     }
   };
 
-  const handleDownload = () => {
-    if (!resultUrl) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = "scan.pdf";
-    a.click();
-  };
-
   const reset = () => {
     setCapturedImages([]);
     setError(null);
-    setResultUrl(null);
+    setResult(null);
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Camera; hidden?: boolean }[] = [
@@ -106,153 +98,114 @@ export default function ScanPage() {
   ];
 
   return (
-    <ToolLayout
-      title="Scan to PDF"
-      description="Convert photos or camera captures to a PDF"
-      icon={Camera}
-    >
-      <div className="space-y-5">
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-border">
-          {tabs.filter((t) => !t.hidden).map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => { if (id !== "camera" && cameraActive) stopCamera(); setTab(id); }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-                tab === id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
+    <ToolLayout title="Scan to PDF" description="Photograph paper pages with your camera and save them as one PDF" icon={Camera} medium>
+      <Steps>
+        <Step
+          n={1}
+          title="Capture pages"
+          state={result ? "done" : "current"}
+          summary={`${capturedImages.length} page${capturedImages.length === 1 ? "" : "s"}`}
+          onChange={() => setResult(null)}
+        >
+          <div className="flex gap-1 border-b border-border" role="tablist">
+            {tabs.filter((t) => !t.hidden).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => { if (id !== "camera" && cameraActive) stopCamera(); setTab(id); }}
+                className={cn(
+                  "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+                  tab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
 
-        {/* Camera tab */}
-        {tab === "camera" && (
-          <div className="space-y-3">
-            <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-              <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-              {!cameraActive && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Button onClick={startCamera} variant="outline">
-                    <Camera className="h-4 w-4 mr-2" /> Start Camera
-                  </Button>
-                </div>
+          {tab === "camera" && (
+            <div className="space-y-3">
+              <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
+                {!cameraActive && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Button onClick={startCamera} variant="outline">
+                      <Camera className="h-4 w-4" /> Start camera
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {cameraActive && (
+                <Button onClick={capturePhoto} className="w-full">
+                  <Camera className="h-4 w-4" /> Capture page {capturedImages.length + 1}
+                </Button>
               )}
             </div>
-            {cameraActive && (
-              <Button onClick={capturePhoto} className="w-full">
-                <Camera className="h-4 w-4 mr-2" /> Capture Photo
-              </Button>
-            )}
-          </div>
-        )}
+          )}
 
-        {/* Upload tab */}
-        {tab === "upload" && (
-          <label
-            className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
-              if (files.length) setCapturedImages((prev) => [...prev, ...files]);
-            }}
-          >
-            <input type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-            <ImageIcon className="h-9 w-9 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Drop images here or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP, GIF - multiple files supported</p>
+          {tab === "upload" && (
+            <PdfDropzone kind="image" multiple onFiles={(files) => setCapturedImages((prev) => [...prev, ...files])} label="Drop photos of the pages" />
+          )}
+
+          {tab === "qr" && (
+            <div className="space-y-4 py-4 text-center">
+              <QrCodeDisplay />
+              <p className="text-sm text-muted-foreground">Scan this with your phone to open Scan there and use its camera.</p>
             </div>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-              Choose Images
-            </span>
-          </label>
-        )}
+          )}
 
-        {/* QR Code tab */}
-        {tab === "qr" && (
-          <div className="text-center space-y-4 py-6">
-            <QrCodeDisplay />
-            <p className="text-sm text-muted-foreground">
-              Scan this QR code with your phone to open the Scan tool on mobile and use your camera directly.
-            </p>
-          </div>
-        )}
-
-        {/* Captured images list */}
-        {capturedImages.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground font-medium">{capturedImages.length} image{capturedImages.length !== 1 ? "s" : ""} ready</p>
-            <div className="flex flex-wrap gap-2">
+          {capturedImages.length > 0 && (
+            <ul className="flex flex-wrap gap-2" aria-label="Captured pages">
               {capturedImages.map((f, i) => (
-                <div key={i} className="relative">
-                  <img
-                    src={URL.createObjectURL(f)}
-                    alt={`Scan ${i + 1}`}
-                    className="h-16 w-16 object-cover rounded-md border border-border"
-                  />
+                <li key={`${f.name}-${i}`} className="relative">
+                  <Thumb file={f} alt={`Page ${i + 1}`} />
                   <button
+                    type="button"
+                    aria-label={`Remove page ${i + 1}`}
                     onClick={() => setCapturedImages((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white text-xs flex items-center justify-center leading-none"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-destructive"
                   >
-                    ×
+                    <X className="h-3 w-3" />
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
-        )}
+            </ul>
+          )}
 
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
+          {isLoading && <Working>Building the PDF…</Working>}
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Button onClick={handleConvert} disabled={!capturedImages.length || isLoading} className="w-full">
+            Create PDF from {capturedImages.length || "the"} page{capturedImages.length === 1 ? "" : "s"}
+          </Button>
+        </Step>
 
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              PDF created from {capturedImages.length} image{capturedImages.length !== 1 ? "s" : ""}!
-            </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download scan.pdf
-            </Button>
-          </div>
-        )}
-
-        {capturedImages.length > 0 && (
-          !resultUrl ? (
-            <Button onClick={handleConvert} disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating PDF...</>
-              ) : (
-                <><Download className="h-4 w-4 mr-2" /> Create PDF</>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={reset} variant="outline" className="w-full">
-              <RotateCcw className="h-4 w-4 mr-2" /> Scan More
-            </Button>
-          )
-        )}
-      </div>
+        <Step n={2} title="Save" state={result ? "current" : "todo"}>
+          {result && (
+            <ResultCard verb="Scanned" blob={result} fileName="scan.pdf" onReset={reset} resetLabel="Scan more" />
+          )}
+        </Step>
+      </Steps>
     </ToolLayout>
   );
 }
 
+/** Preview of a captured image. URLs live as long as the page; scans are a handful of photos. */
+function Thumb({ file, alt }: { file: File; alt: string }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt={alt} className="h-16 w-16 rounded-md border border-border object-cover" />;
+}
+
+const noopSubscribe = () => () => {};
+
 function QrCodeDisplay() {
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    setUrl(window.location.origin + "/scan");
-  }, []);
+  const url = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin + "/scan",
+    () => ""
+  );
 
   if (!url) return null;
 

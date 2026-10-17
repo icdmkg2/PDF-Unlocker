@@ -18,3 +18,15 @@ export async function rotatePDF(
 
   return doc.save();
 }
+
+/** Turn each listed page by its own angle (degrees, multiples of 90). */
+export async function rotatePagesBy(file: File, turns: Record<number, number>): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(await file.arrayBuffer());
+  const pages = doc.getPages();
+  for (const [key, turn] of Object.entries(turns)) {
+    const page = pages[Number(key)];
+    if (!page || turn % 360 === 0) continue;
+    page.setRotation(degrees((((page.getRotation().angle + turn) % 360) + 360) % 360));
+  }
+  return doc.save();
+}

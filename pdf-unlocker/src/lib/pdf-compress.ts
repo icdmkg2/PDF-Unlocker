@@ -1,21 +1,52 @@
 import { PDFDocument } from "pdf-lib";
 import { canvasToJpegBytes, loadPdfDocument } from "./pdf-utils";
+import { asPdfcpuInput, runPdfcpu } from "./pdfcpu";
 
-export type CompressQuality = "screen" | "ebook" | "print";
+export type RasterQuality = "screen" | "ebook" | "print";
+export type CompressQuality = "lossless" | RasterQuality;
 
-const SETTINGS: Record<CompressQuality, { scale: number; jpegQuality: number }> = {
+const SETTINGS: Record<RasterQuality, { scale: number; jpegQuality: number }> = {
   screen: { scale: 1.0, jpegQuality: 0.5 },
   ebook: { scale: 1.5, jpegQuality: 0.72 },
   print: { scale: 2.0, jpegQuality: 0.88 },
 };
 
-/**
- * Lossy compress: rasterizes every page to JPEG.
- * Removes selectable text, links, and form fields by design.
- */
 export async function compressPDF(
   file: File,
-  quality: CompressQuality = "ebook",
+  quality: CompressQuality = "lossless",
+  onProgress?: (page: number, total: number) => void
+): Promise<Uint8Array> {
+  return quality === "lossless"
+    ? compressLossless(file)
+    : compressRaster(file, quality, onProgress);
+}
+
+/**
+ * Lossless: pdfcpu optimize drops duplicate fonts and images, unused objects
+ * and re-compresses streams. Text, links and form fields are kept. If nothing
+ * can be saved the original bytes are returned unchanged.
+ */
+export async function compressLossless(file: File): Promise<Uint8Array> {
+  const original = new Uint8Array(await file.arrayBuffer());
+  const out = await runPdfcpu(
+    ["optimize", "/input/input.pdf", "/output/output.pdf"],
+    [await asPdfcpuInput(file)]
+  );
+  const result = await out.read("output.pdf");
+  if (!result) {
+    throw new Error(out.errors.at(-1) ?? "This PDF could not be optimized.");
+  }
+  const bytes = new Uint8Array(await result.arrayBuffer());
+  return bytes.length < original.length ? bytes : original;
+}
+
+/**
+ * Lossy: rasterizes every page to JPEG.
+ * Removes selectable text, links, and form fields by design.
+ */
+export async function compressRaster(
+  file: File,
+  quality: RasterQuality,
   onProgress?: (page: number, total: number) => void
 ): Promise<Uint8Array> {
   const { scale, jpegQuality } = SETTINGS[quality];
