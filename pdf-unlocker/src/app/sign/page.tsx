@@ -1,269 +1,203 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { PenLine, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { EncryptedNotice } from "@/components/encrypted-notice";
+import { ResultCard } from "@/components/result-card";
+import { ErrorNote } from "@/components/steps";
+import { usePdfDoc } from "@/components/workbench";
+import { DockDivider, DockItem, PageCanvas, Viewer, type PageBox } from "@/components/viewer";
+import { SignaturePad, type Signature } from "@/components/signature-pad";
+import { PenLine, Loader2, SlidersHorizontal, Pencil } from "lucide-react";
 import { signPDF } from "@/lib/pdf-sign";
-import { cn } from "@/lib/utils";
-import { PDFDocument } from "pdf-lib";
 import { addHistoryEntry } from "@/lib/local-history";
 
-const SIZE_OPTIONS = [
-  { label: "Small", width: 100, height: 40 },
-  { label: "Medium", width: 150, height: 60 },
-  { label: "Large", width: 200, height: 80 },
-];
-
-const POSITION_OPTIONS = [
-  { label: "Bottom Left", getCoords: (pw: number, ph: number, sw: number, sh: number) => ({ x: 40, y: ph - sh - 40 }) },
-  { label: "Bottom Center", getCoords: (pw: number, ph: number, sw: number, sh: number) => ({ x: (pw - sw) / 2, y: ph - sh - 40 }) },
-  { label: "Bottom Right", getCoords: (pw: number, ph: number, sw: number, sh: number) => ({ x: pw - sw - 40, y: ph - sh - 40 }) },
-];
+/** Where the signature sits, in PDF points measured from the page's top-left. */
+interface Placement {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+}
 
 export default function SignPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [pageCount, setPageCount] = useState<number | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [sizeOption, setSizeOption] = useState(1);
-  const [positionOption, setPositionOption] = useState(2);
-  const [isLoading, setIsLoading] = useState(false);
+  const { doc, pageCount } = usePdfDoc(file);
+  const [page, setPage] = useState(0);
+  const [signature, setSignature] = useState<Signature | null>(null);
+  const [placement, setPlacement] = useState<Placement | null>(null);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricRef = useRef<import("fabric").Canvas | null>(null);
+  const [result, setResult] = useState<Blob | null>(null);
+  const drag = useRef<{ startX: number; startY: number; x: number; y: number; k: number; box: PageBox } | null>(null);
 
-  useEffect(() => {
-    return () => {
-      fabricRef.current?.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    const initFabric = async () => {
-      const { Canvas, PencilBrush } = await import("fabric");
-      if (fabricRef.current) fabricRef.current.dispose();
-      const fc = new Canvas(canvasRef.current!, {
-        width: 500,
-        height: 150,
-        backgroundColor: "#fff",
-        isDrawingMode: true,
-      });
-      fc.freeDrawingBrush = new PencilBrush(fc);
-      fc.freeDrawingBrush.color = "#1a1a2e";
-      fc.freeDrawingBrush.width = 2;
-      fabricRef.current = fc;
-    };
-    initFabric();
-  }, []);
-
-  const handleFiles = useCallback(async (files: File[]) => {
-    const f = files[0];
-    setFile(f);
+  const handleFiles = useCallback((files: File[]) => {
+    setFile(files[0]);
+    setPage(0);
+    setPlacement(null);
     setError(null);
-    setResultUrl(null);
-    try {
-      const bytes = await f.arrayBuffer();
-      const doc = await PDFDocument.load(bytes);
-      const count = doc.getPageCount();
-      setPageCount(count);
-      setPageIndex(count - 1);
-    } catch {
-      setPageCount(null);
-    }
+    setResult(null);
   }, []);
 
-  const handleRemove = useCallback(() => {
+  const reset = () => {
     setFile(null);
-    setPageCount(null);
+    setPlacement(null);
     setError(null);
-    setResultUrl(null);
-  }, []);
+    setResult(null);
+  };
 
-  const clearSignature = () => {
-    fabricRef.current?.clear();
-    if (fabricRef.current) {
-      fabricRef.current.backgroundColor = "#fff";
-      fabricRef.current.renderAll();
-    }
+  /** Once a signature exists, drop it near the bottom right of the page in view, where signatures usually go. */
+  const placeDefault = (box: PageBox) => {
+    if (!signature || placement) return;
+    const width = Math.min(170, box.ptWidth * 0.3);
+    const height = width * signature.aspect;
+    setPlacement({ page, width, x: box.ptWidth - width - 54, y: box.ptHeight - height - 72 });
   };
 
   const handleSign = async () => {
-    if (!file || !pageCount || !fabricRef.current) return;
-    const fc = fabricRef.current;
-    if (!fc.getObjects().length) {
-      setError("Please draw your signature first.");
-      return;
-    }
-
-    setIsLoading(true);
+    if (!file || !signature || !placement) return;
+    setWorking(true);
     setError(null);
     try {
-      const dataUrl = fc.toDataURL({ format: "png", multiplier: 1 });
-
-      const bytes = await file.arrayBuffer();
-      const doc = await PDFDocument.load(bytes);
-      const page = doc.getPage(pageIndex);
-      const { width: pw, height: ph } = page.getSize();
-
-      const { width: sw, height: sh } = SIZE_OPTIONS[sizeOption];
-      const { x, y } = POSITION_OPTIONS[positionOption].getCoords(pw, ph, sw, sh);
-
-      const out = await signPDF(file, dataUrl, {
-        pageIndex,
-        x,
-        y: ph - y - sh,
-        width: sw,
-        height: sh,
+      const out = await signPDF(file, signature.dataUrl, {
+        pageIndex: placement.page,
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.width * signature.aspect,
       });
       const blob = new Blob([out as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
-      setResultUrl(URL.createObjectURL(blob));
+      setResult(blob);
       void addHistoryEntry({ tool: "Sign", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signing failed.");
     } finally {
-      setIsLoading(false);
+      setWorking(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!resultUrl || !file) return;
-    const a = document.createElement("a");
-    a.href = resultUrl;
-    a.download = `signed_${file.name}`;
-    a.click();
-  };
-
-  const reset = () => {
-    setFile(null);
-    setPageCount(null);
-    setError(null);
-    setResultUrl(null);
-    clearSignature();
-  };
-
   return (
-    <ToolLayout
-      title="Sign PDF"
-      description="Draw a signature image and stamp it onto a PDF page"
-      icon={PenLine}
-      notice="Visual signature stamp only - not a cryptographic certificate digital signature (PAdES)."
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
-        />
-
-        <div className="space-y-2">
-          <Label>Draw your signature</Label>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <canvas ref={canvasRef} />
-          </div>
-          <Button variant="ghost" size="sm" onClick={clearSignature} className="text-xs">
-            <Trash2 className="h-3 w-3 mr-1" /> Clear
-          </Button>
-        </div>
-
-        {file && pageCount && (
-          <>
-            <div className="space-y-1.5">
-              <Label htmlFor="page-select">Place on page</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="page-select"
-                  type="number"
-                  min={1}
-                  max={pageCount}
-                  value={pageIndex + 1}
-                  onChange={(e) => setPageIndex(Math.max(0, Math.min(pageCount - 1, parseInt(e.target.value) - 1 || 0)))}
-                  className="w-24"
-                />
-                <span className="text-xs text-muted-foreground">of {pageCount}</span>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Position</Label>
-              <div className="flex gap-2">
-                {POSITION_OPTIONS.map(({ label }, i) => (
-                  <button
-                    key={label}
-                    onClick={() => setPositionOption(i)}
-                    className={cn(
-                      "flex-1 py-1.5 px-2 rounded-md border text-xs font-medium transition-colors",
-                      positionOption === i
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Size</Label>
-              <div className="flex gap-2">
-                {SIZE_OPTIONS.map(({ label }, i) => (
-                  <button
-                    key={label}
-                    onClick={() => setSizeOption(i)}
-                    className={cn(
-                      "flex-1 py-1.5 rounded-md border text-xs font-medium transition-colors",
-                      sizeOption === i
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {resultUrl && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Signature added successfully!
-            </div>
-            <Button onClick={handleDownload} className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download signed PDF
+    <ToolLayout title="Sign PDF" description="Draw your signature, then drag it where it belongs" icon={PenLine} wide>
+      {!file ? (
+        <PdfDropzone onFiles={handleFiles} label="Drop the PDF to sign" />
+      ) : result ? (
+        <ResultCard
+          verb={`Signed on page ${placement!.page + 1}`}
+          blob={result}
+          fileName={file.name.replace(/\.pdf$/i, "") + "_signed.pdf"}
+          note="This is a visible signature stamp, not a certificate-based digital signature."
+          actions={
+            <Button variant="outline" onClick={() => setResult(null)}>
+              <SlidersHorizontal className="h-4 w-4" /> Adjust
             </Button>
+          }
+          onReset={() => {
+            reset();
+            setSignature(null);
+          }}
+          resetLabel="Sign another"
+        />
+      ) : !signature ? (
+        <div className="mx-auto max-w-2xl space-y-4 rounded-lg border border-border bg-card p-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-display text-2xl">Your signature</h2>
+            <span className="truncate text-xs text-muted-foreground">{file.name}</span>
           </div>
-        )}
-
-        {!resultUrl ? (
-          <Button onClick={handleSign} disabled={!file || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing...</>
-            ) : (
-              <><PenLine className="h-4 w-4 mr-2" /> Sign PDF</>
+          <SignaturePad onDone={setSignature} />
+          <p className="text-xs text-muted-foreground">
+            This adds a picture of your signature to the page. It is not a certificate-based digital signature.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <EncryptedNotice file={file} />
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Viewer
+            file={file}
+            doc={doc}
+            pageCount={pageCount}
+            page={page}
+            onPage={setPage}
+            onChangeFile={reset}
+            badgeOf={(i) =>
+              placement?.page === i ? (
+                <span className="absolute right-1 top-1 rounded bg-primary px-1 text-[9px] font-medium text-primary-foreground">Signed</span>
+              ) : null
+            }
+            dock={
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {placement && placement.page !== page ? `Signature is on page ${placement.page + 1}` : "Drag the signature into place"}
+                </span>
+                {placement && placement.page !== page && (
+                  <Button size="sm" variant="outline" onClick={() => setPlacement({ ...placement, page })}>
+                    Move here
+                  </Button>
+                )}
+                <DockDivider />
+                {placement && (
+                  <DockItem label="Size">
+                    <input
+                      id="sig-size"
+                      aria-label="Signature size"
+                      type="range"
+                      min="60"
+                      max="320"
+                      step="5"
+                      value={placement.width}
+                      onChange={(e) => setPlacement({ ...placement, width: Number(e.target.value) })}
+                      className="w-24 accent-[var(--paper)]"
+                    />
+                  </DockItem>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSignature(null)}>
+                  <Pencil className="h-4 w-4" /> Redraw
+                </Button>
+                <Button size="sm" onClick={handleSign} disabled={!placement || working}>
+                  {working ? <Loader2 className="h-4 w-4 animate-spin" /> : <PenLine className="h-4 w-4" />} Sign
+                </Button>
+              </>
+            }
+          >
+            {doc && (
+              <PageCanvas doc={doc} index={page} onBox={placeDefault}>
+                {(box) => {
+                  if (!placement || placement.page !== page) return null;
+                  const k = box.width / box.ptWidth;
+                  const w = placement.width * k;
+                  const h = w * signature.aspect;
+                  return (
+                    <div
+                      role="img"
+                      aria-label="Signature, drag to move"
+                      className="absolute cursor-move touch-none rounded-sm outline outline-1 outline-dashed outline-[#1d4ed8]/60 hover:outline-[#1d4ed8]"
+                      style={{ left: placement.x * k, top: placement.y * k, width: w, height: h }}
+                      onPointerDown={(e) => {
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        drag.current = { startX: e.clientX, startY: e.clientY, x: placement.x, y: placement.y, k, box };
+                      }}
+                      onPointerMove={(e) => {
+                        const d = drag.current;
+                        if (!d) return;
+                        const hPt = placement.width * signature.aspect;
+                        const x = Math.min(Math.max(0, d.x + (e.clientX - d.startX) / d.k), d.box.ptWidth - placement.width);
+                        const y = Math.min(Math.max(0, d.y + (e.clientY - d.startY) / d.k), d.box.ptHeight - hPt);
+                        setPlacement({ ...placement, x, y });
+                      }}
+                      onPointerUp={() => (drag.current = null)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={signature.dataUrl} alt="" draggable={false} className="h-full w-full select-none" />
+                    </div>
+                  );
+                }}
+              </PageCanvas>
             )}
-          </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Sign Another PDF
-          </Button>
-        )}
-      </div>
+          </Viewer>
+        </div>
+      )}
     </ToolLayout>
   );
 }

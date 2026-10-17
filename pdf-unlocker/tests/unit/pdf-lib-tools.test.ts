@@ -68,3 +68,47 @@ describe("split planning", async () => {
     expect(planParts("ranges", 9, new Set(), "1-2, 9")).toEqual([[0, 1], [8]]);
   });
 });
+
+describe("watermark centering", async () => {
+  const { centeredOrigin } = await import("@/lib/pdf-watermark");
+  it("puts an unrotated box's middle on the point", () => {
+    expect(centeredOrigin(300, 400, 100, 20, 0)).toEqual({ x: 250, y: 390 });
+  });
+  it("keeps a rotated box centered", () => {
+    const { x, y } = centeredOrigin(300, 400, 100, 20, 90);
+    // Rotated 90° about its origin, the box's middle is at origin + (-h/2, w/2).
+    expect(x - 10).toBeCloseTo(300);
+    expect(y + 50).toBeCloseTo(400);
+  });
+});
+
+describe("form fields", async () => {
+  const { listFormFields } = await import("@/lib/pdf-forms");
+  it("reports field types and where each field sits", async () => {
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([600, 800]);
+    const form = doc.getForm();
+    form.createTextField("name").addToPage(page, { x: 100, y: 700, width: 200, height: 20 });
+    form.createCheckBox("agree").addToPage(page, { x: 100, y: 650, width: 12, height: 12 });
+    const fields = await listFormFields(asFile(await doc.save()));
+    expect(fields.map((f) => f.type)).toEqual(["Text", "CheckBox"]);
+    // pdf-lib pads the widget by half its border width
+    const w = fields[0].widgets[0];
+    expect(w.pageIndex).toBe(0);
+    expect(Math.abs(w.x - 100)).toBeLessThanOrEqual(1);
+    expect(Math.abs(w.y - 80)).toBeLessThanOrEqual(1);
+    expect(Math.abs(w.width - 200)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("pixel diff", async () => {
+  const { diffPixels } = await import("@/lib/pdf-compare");
+  it("counts and marks only pixels that differ", () => {
+    const a = new Uint8ClampedArray([255, 255, 255, 255, 0, 0, 0, 255]);
+    const b = new Uint8ClampedArray([255, 255, 255, 255, 255, 255, 255, 255]);
+    const out = new Uint8ClampedArray(8);
+    expect(diffPixels(a, b, out)).toBe(1);
+    expect(out[3]).toBe(0);
+    expect(out[7]).toBeGreaterThan(0);
+  });
+});

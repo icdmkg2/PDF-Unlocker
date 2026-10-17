@@ -24,7 +24,7 @@ export function ToolLayout({
   notice,
 }: ToolLayoutProps) {
   return (
-    <div className="min-h-full p-6 lg:p-10">
+    <div className="min-h-full p-6 pt-16 lg:p-10">
       <div
         className={cn(
           "mx-auto",
