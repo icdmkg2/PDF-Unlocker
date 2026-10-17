@@ -76,3 +76,15 @@ describe("handoff", () => {
     expect(takeHandoff()).toBeNull();
   });
 });
+
+describe("page selection", async () => {
+  const { nextSelection } = await import("@/components/workbench");
+  it("toggles single pages and adds ranges with shift", () => {
+    let s = nextSelection(new Set(), 2, null, false);
+    expect([...s]).toEqual([2]);
+    s = nextSelection(s, 5, 2, true);
+    expect([...s].sort()).toEqual([2, 3, 4, 5]);
+    s = nextSelection(s, 3, 5, false);
+    expect(s.has(3)).toBe(false);
+  });
+});

@@ -3,185 +3,168 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
-import { Scissors, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Archive } from "lucide-react";
-import { splitPDF, parseRanges, splitToZip } from "@/lib/pdf-split";
-import { PDFDocument } from "pdf-lib";
+import { ResultCard } from "@/components/result-card";
+import { ErrorNote, Working } from "@/components/steps";
+import { LoadingPages, PageGrid, PanelField, PanelFile, Pills, SelectionControls, Workbench, usePdfDoc } from "@/components/workbench";
+import { Scissors, SlidersHorizontal, Download } from "lucide-react";
+import { splitPDF, splitToZip, planParts, type SplitMode as Mode } from "@/lib/pdf-split";
 import { downloadBlob } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
+
+const MODES: { id: Mode; label: string }[] = [
+  { id: "extract", label: "Pull out pages" },
+  { id: "cut", label: "Cut into parts" },
+  { id: "each", label: "Every page" },
+  { id: "ranges", label: "Type ranges" },
+];
+
+const HINT: Record<Mode, string> = {
+  extract: "Select the pages you want. They become one new PDF.",
+  cut: "Select the pages where a new part should start. Each part becomes its own PDF.",
+  each: "Every page becomes its own PDF, delivered as a ZIP.",
+  ranges: "Each comma-separated range becomes its own PDF, e.g. 1-3, 5, 8-10.",
+};
+
 export default function SplitPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [pageCount, setPageCount] = useState<number | null>(null);
-  const [rangeInput, setRangeInput] = useState("");
-  const [extractAll, setExtractAll] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { doc, pageCount, loading, error: loadError } = usePdfDoc(file);
+  const [mode, setMode] = useState<Mode>("extract");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [ranges, setRanges] = useState("");
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [results, setResults] = useState<{ bytes: Uint8Array; name: string }[] | null>(null);
+  const [result, setResult] = useState<{ blob: Blob; parts: { name: string; bytes: Uint8Array }[] } | null>(null);
 
-  const handleFiles = useCallback(async (files: File[]) => {
-    const f = files[0];
-    setFile(f);
+  const handleFiles = useCallback((files: File[]) => {
+    setFile(files[0]);
+    setSelected(new Set());
+    setRanges("");
     setError(null);
-    setResults(null);
-    setRangeInput("");
-    try {
-      const bytes = await f.arrayBuffer();
-      const doc = await PDFDocument.load(bytes);
-      setPageCount(doc.getPageCount());
-    } catch {
-      setPageCount(null);
-    }
+    setResult(null);
   }, []);
 
-  const handleRemove = useCallback(() => {
+  const reset = () => {
     setFile(null);
-    setPageCount(null);
+    setSelected(new Set());
+    setRanges("");
     setError(null);
-    setResults(null);
-  }, []);
+    setResult(null);
+  };
+
+  let parts: number[][] = [];
+  let planError: string | null = null;
+  try {
+    parts = planParts(mode, pageCount, selected, ranges);
+  } catch (err) {
+    planError = err instanceof Error ? err.message : "Check the page ranges.";
+  }
+  const partOf = new Map<number, number>();
+  parts.forEach((p, n) => p.forEach((i) => partOf.set(i, n + 1)));
 
   const handleSplit = async () => {
-    if (!file || !pageCount) return;
-    setIsLoading(true);
+    if (!file || !parts.length) return;
+    setWorking(true);
     setError(null);
     try {
-      let ranges: number[][];
-      if (extractAll) {
-        ranges = Array.from({ length: pageCount }, (_, i) => [i]);
-      } else {
-        if (!rangeInput.trim()) throw new Error("Please enter page ranges.");
-        ranges = parseRanges(rangeInput, pageCount);
-      }
-      const parts = await splitPDF(file, ranges);
-      setResults(parts);
+      const out = await splitPDF(file, parts);
+      const blob =
+        out.length === 1
+          ? new Blob([out[0].bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" })
+          : await splitToZip(out);
+      setResult({ blob, parts: out });
       await addHistoryEntry({ tool: "Split", fileName: file.name, size: file.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Split failed.");
     } finally {
-      setIsLoading(false);
+      setWorking(false);
     }
   };
 
-  const downloadAll = () => {
-    if (!results) return;
-    results.forEach(({ bytes, name }) => {
-      downloadBlob(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" }), name);
-    });
-  };
-
-  const downloadZip = async () => {
-    if (!results) return;
-    setIsLoading(true);
-    try {
-      const zip = await splitToZip(results);
-      downloadBlob(zip, (file?.name.replace(/\.pdf$/i, "") || "split") + "_pages.zip");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ZIP failed.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const reset = () => {
-    setFile(null);
-    setPageCount(null);
-    setRangeInput("");
-    setExtractAll(false);
-    setError(null);
-    setResults(null);
-  };
+  const base = file?.name.replace(/\.pdf$/i, "") ?? "split";
+  const usesSelection = mode === "extract" || mode === "cut";
 
   return (
-    <ToolLayout
-      title="Split PDF"
-      description="Extract pages or split a PDF into multiple files"
-      icon={Scissors}
-    >
-      <div className="space-y-5">
-        <PdfDropzone
-          onFiles={handleFiles}
-          files={file ? [file] : []}
-          onRemove={handleRemove}
-          label="Drop your PDF here"
+    <ToolLayout title="Split PDF" description="Pull pages out of a PDF or cut it into several files" icon={Scissors} wide>
+      {!file ? (
+        <PdfDropzone onFiles={handleFiles} label="Drop the PDF to split" />
+      ) : result ? (
+        <ResultCard
+          verb={result.parts.length === 1 ? "Pages pulled out" : `Split into ${result.parts.length} files`}
+          blob={result.blob}
+          fileName={result.parts.length === 1 ? `${base}_${result.parts[0].name}` : `${base}_split.zip`}
+          facts={[{ label: "Files", value: String(result.parts.length) }]}
+          note={result.parts.length > 1 && `Inside the ZIP: ${result.parts.map((p) => p.name).join(", ")}`}
+          actions={
+            <>
+              {result.parts.length > 1 && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    result.parts.forEach((p) =>
+                      downloadBlob(new Blob([p.bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" }), `${base}_${p.name}`)
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4" /> Each file
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setResult(null)}>
+                <SlidersHorizontal className="h-4 w-4" /> Adjust
+              </Button>
+            </>
+          }
+          onReset={reset}
+          resetLabel="Split another"
         />
-        <EncryptedNotice file={file} />
-
-        {pageCount !== null && (
-          <p className="text-xs text-muted-foreground">
-            Document has <strong className="text-foreground">{pageCount}</strong> pages
-          </p>
-        )}
-
-        {file && pageCount && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="extractAll"
-                checked={extractAll}
-                onChange={(e) => setExtractAll(e.target.checked)}
-                className="rounded"
-              />
-              <Label htmlFor="extractAll">Extract all pages individually</Label>
-            </div>
-
-            {!extractAll && (
-              <div className="space-y-1.5">
-                <Label htmlFor="ranges">Page ranges</Label>
-                <Input
-                  id="ranges"
-                  placeholder={`e.g. 1-3, 5, 7-${pageCount}`}
-                  value={rangeInput}
-                  onChange={(e) => setRangeInput(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Each comma-separated range becomes a separate PDF
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {results && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-primary text-sm">
-              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-              Split into {results.length} file{results.length !== 1 ? "s" : ""}!
-            </div>
-            <Button onClick={downloadZip} disabled={isLoading} className="w-full">
-              <Archive className="h-4 w-4 mr-2" /> Download ZIP ({results.length} files)
-            </Button>
-            <Button onClick={downloadAll} variant="outline" className="w-full">
-              <Download className="h-4 w-4 mr-2" /> Download each file
-            </Button>
-          </div>
-        )}
-
-        {!results ? (
-          <Button onClick={handleSplit} disabled={!file || isLoading} className="w-full">
-            {isLoading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Splitting...</>
-            ) : (
-              <><Scissors className="h-4 w-4 mr-2" /> Split PDF</>
-            )}
-          </Button>
-        ) : (
-          <Button onClick={reset} variant="outline" className="w-full">
-            <RotateCcw className="h-4 w-4 mr-2" /> Start Over
-          </Button>
-        )}
-      </div>
+      ) : (
+        <Workbench
+          panel={
+            <>
+              <PanelFile file={file} pageCount={pageCount} onChange={reset} />
+              <EncryptedNotice file={file} />
+              <PanelField label="How to split">
+                <Pills label="How to split" options={MODES} value={mode} onChange={setMode} />
+                <p className="text-xs leading-relaxed text-muted-foreground">{HINT[mode]}</p>
+              </PanelField>
+              {mode === "ranges" && (
+                <Input id="ranges" aria-label="Page ranges" placeholder={`1-3, 5, 7-${pageCount || 9}`} value={ranges} onChange={(e) => setRanges(e.target.value)} />
+              )}
+              {working && <Working>Splitting…</Working>}
+              {(error || planError || loadError) && <ErrorNote>{error || planError || loadError}</ErrorNote>}
+              <Button onClick={handleSplit} disabled={!parts.length || working} className="w-full">
+                <Scissors className="h-4 w-4" />
+                {parts.length > 1 ? `Make ${parts.length} files` : parts.length === 1 ? `Save ${parts[0].length} page${parts[0].length === 1 ? "" : "s"}` : "Split"}
+              </Button>
+            </>
+          }
+          header={doc && usesSelection && <SelectionControls count={pageCount} selected={selected} onSelect={setSelected} />}
+        >
+          {loading || !doc ? (
+            <LoadingPages />
+          ) : (
+            <PageGrid
+              doc={doc}
+              order={Array.from({ length: pageCount }, (_, i) => i)}
+              selected={usesSelection ? selected : undefined}
+              onSelect={usesSelection ? setSelected : undefined}
+              overlayOf={(i) =>
+                mode === "cut" && selected.has(i) && i > 0 ? (
+                  <span className="absolute -left-2.5 top-0 flex h-full items-center">
+                    <span className="h-full w-0.5 rounded bg-primary" />
+                  </span>
+                ) : mode === "extract" && selected.size > 0 && !selected.has(i) ? (
+                  <span className="absolute inset-0 rounded-[2px] bg-background/60" />
+                ) : null
+              }
+              labelOf={(i) => (partOf.has(i) && parts.length > 1 ? `${i + 1} · file ${partOf.get(i)}` : i + 1)}
+            />
+          )}
+        </Workbench>
+      )}
     </ToolLayout>
   );
 }

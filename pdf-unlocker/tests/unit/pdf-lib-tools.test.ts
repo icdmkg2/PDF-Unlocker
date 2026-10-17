@@ -49,3 +49,22 @@ describe("pdf-lib tools", () => {
     expect(meta.author).toBe("Ada");
   });
 });
+
+describe("split planning", async () => {
+  const { planParts } = await import("@/lib/pdf-split");
+  it("pulls selected pages into one file", () => {
+    expect(planParts("extract", 5, new Set([3, 0]), "")).toEqual([[0, 3]]);
+  });
+  it("cuts before each selected page", () => {
+    expect(planParts("cut", 6, new Set([2, 4]), "")).toEqual([[0, 1], [2, 3], [4, 5]]);
+  });
+  it("needs at least one cut to make parts", () => {
+    expect(planParts("cut", 3, new Set([0]), "")).toEqual([]);
+  });
+  it("makes one file per page", () => {
+    expect(planParts("each", 3, new Set(), "")).toEqual([[0], [1], [2]]);
+  });
+  it("reads typed ranges", () => {
+    expect(planParts("ranges", 9, new Set(), "1-2, 9")).toEqual([[0, 1], [8]]);
+  });
+});
