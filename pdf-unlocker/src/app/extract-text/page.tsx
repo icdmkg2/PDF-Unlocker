@@ -7,7 +7,9 @@ import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
 import { ResultCard, formatSize } from "@/components/result-card";
 import { ErrorNote, Step, Steps, Working } from "@/components/steps";
-import { FileType, Copy } from "lucide-react";
+import { FileType, Copy, ScanText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { setHandoff } from "@/lib/handoff";
 import { extractTextFromPDF } from "@/lib/pdf-extract-text";
 import { addHistoryEntry } from "@/lib/local-history";
 
@@ -17,6 +19,7 @@ export default function ExtractTextPage() {
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
 
   const handleFiles = useCallback((files: File[]) => {
     setFile(files[0]);
@@ -47,6 +50,9 @@ export default function ExtractTextPage() {
       setProgress(null);
     }
   };
+
+  // The text carries "--- Page n ---" markers, so look past them for real text.
+  const hasText = !!text && text.replace(/^--- Page \d+ ---$/gm, "").trim().length > 0;
 
   const handleCopy = async () => {
     if (!text) return;
@@ -79,8 +85,19 @@ export default function ExtractTextPage() {
           {text !== null && file && (
             <>
               <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-card p-4 font-mono text-xs text-foreground">
-                {text || "No text found. This is probably a scanned PDF, which holds pictures of text rather than text."}
+                {hasText ? text : "No text found. This is probably a scanned PDF, which holds pictures of text rather than text."}
               </pre>
+              {!hasText && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setHandoff([file]);
+                    router.push("/ocr");
+                  }}
+                >
+                  <ScanText className="h-4 w-4" /> Make it searchable with OCR
+                </Button>
+              )}
               <ResultCard
                 verb="Extracted"
                 blob={new Blob([text], { type: "text/plain;charset=utf-8" })}

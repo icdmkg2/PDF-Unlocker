@@ -9,7 +9,7 @@ import {
   StickyNote, PenLine, Eraser, Download, RotateCcw, X,
   ChevronLeft, ChevronRight, Loader2, AlertCircle, Trash2,
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight,
-  RotateCw, Undo2,
+  RotateCw, Undo2, TextCursorInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addHistoryEntry } from "@/lib/local-history";
@@ -18,7 +18,19 @@ import { PageThumb } from "@/components/workbench";
 import { SignaturePad, type Signature } from "@/components/signature-pad";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 
-type Tool = "select" | "pen" | "highlight" | "rect" | "ellipse" | "line" | "text" | "sticky" | "signature" | "eraser";
+type Tool = "select" | "edittext" | "pen" | "highlight" | "rect" | "ellipse" | "line" | "text" | "sticky" | "signature" | "eraser";
+
+/** A run of existing text on the rendered page, in canvas pixels. */
+interface TextBox {
+  key: string;
+  text: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  /** CSS family from the PDF's font, e.g. "serif"; falls back to sans-serif. */
+  family: string;
+}
 
 interface PageState {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,7 +40,10 @@ interface PageState {
 const TOOL_GROUPS = [
   {
     label: "Selection",
-    tools: [{ id: "select" as Tool, icon: <MousePointer2 className="h-4 w-4" />, label: "Select" }],
+    tools: [
+      { id: "select" as Tool, icon: <MousePointer2 className="h-4 w-4" />, label: "Select" },
+      { id: "edittext" as Tool, icon: <TextCursorInput className="h-4 w-4" />, label: "Edit text" },
+    ],
   },
   {
     label: "Draw",
@@ -56,6 +71,57 @@ const TOOL_GROUPS = [
   },
 ];
 
+const EXPORT_SCALE = 2;
+
+/** Horizontal runs of text on a page, in the canvas pixels of `viewport`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findTextBoxes(page: any, viewport: any, pageNum: number): Promise<TextBox[]> {
+  const [{ Util }, content] = await Promise.all([import("pdfjs-dist"), page.getTextContent()]);
+  const boxes: TextBox[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content.items.forEach((item: any, i: number) => {
+    if (!("str" in item) || !item.str.trim()) return;
+    const tx = Util.transform(viewport.transform, item.transform);
+    // Only text running left to right on screen; rotated or vertical text is left alone.
+    if (Math.abs(tx[1]) > 0.01 || Math.abs(tx[2]) > 0.01 || tx[0] <= 0) return;
+    const height = Math.hypot(tx[2], tx[3]);
+    const width = item.width * viewport.scale;
+    if (height < 3 || width < 2) return;
+    const family = content.styles[item.fontName]?.fontFamily;
+    boxes.push({
+      key: `${pageNum}:${i}`,
+      text: item.str,
+      left: tx[4],
+      top: tx[5] - height * 0.86,
+      width,
+      height,
+      family: family === "serif" ? "Georgia, serif" : family === "monospace" ? "Courier New, monospace" : "Helvetica, Arial, sans-serif",
+    });
+  });
+  return boxes;
+}
+
+/** The darkest pixel in the box is the ink; the lightest is the paper. */
+function sampleColors(canvas: HTMLCanvasElement | null, box: TextBox): { ink: string; paper: string } {
+  const fallback = { ink: "#000000", paper: "#ffffff" };
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) return fallback;
+  const x = Math.max(0, Math.floor(box.left));
+  const y = Math.max(0, Math.floor(box.top));
+  const w = Math.min(canvas.width - x, Math.ceil(box.width));
+  const h = Math.min(canvas.height - y, Math.ceil(box.height));
+  if (w <= 0 || h <= 0) return fallback;
+  const data = ctx.getImageData(x, y, w, h).data;
+  let dark = 766, light = -1, ink = [0, 0, 0], paper = [255, 255, 255];
+  for (let i = 0; i < data.length; i += 4) {
+    const sum = data[i] + data[i + 1] + data[i + 2];
+    if (sum < dark) { dark = sum; ink = [data[i], data[i + 1], data[i + 2]]; }
+    if (sum > light) { light = sum; paper = [data[i], data[i + 1], data[i + 2]]; }
+  }
+  const hex = (c: number[]) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+  return { ink: hex(ink), paper: hex(paper) };
+}
+
 export default function EditPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
@@ -77,6 +143,10 @@ export default function EditPage() {
   const [result, setResult] = useState<Blob | null>(null);
   const [stripDoc, setStripDoc] = useState<PDFDocumentProxy | null>(null);
   const undoStackRef = useRef<string[]>([]);
+  const [textBoxes, setTextBoxes] = useState<TextBox[]>([]);
+  const [editedBoxes, setEditedBoxes] = useState<Set<string>>(() => new Set());
+  // The rendered page, kept to sample text and paper colours when editing text.
+  const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   // Single canvas: Fabric owns it entirely. The PDF is set as Fabric's backgroundImage
@@ -177,6 +247,8 @@ export default function EditPage() {
     const ctx = offscreen.getContext("2d")!;
     await page.render({ canvasContext: ctx, canvas: offscreen, viewport }).promise;
     const bgDataUrl = offscreen.toDataURL("image/jpeg", 0.95);
+    pageCanvasRef.current = offscreen;
+    setTextBoxes(await findTextBoxes(page, viewport, pageNum));
 
     const { Canvas, PencilBrush, FabricImage } = await import("fabric");
     const fc = new Canvas(fabricCanvasRef.current, { width: w, height: h, isDrawingMode: false, selection: true });
@@ -246,6 +318,7 @@ export default function EditPage() {
   const handleFiles = useCallback(async (files: File[]) => {
     const f = files[0];
     setFile(f);
+    setEditedBoxes(new Set());
     setPdfError(null);
     setIsLoadingPdf(true);
     setCurrentPage(0);
@@ -275,6 +348,33 @@ export default function EditPage() {
       setIsLoadingPdf(false);
     }
   }, [initFabricForPage]);
+
+  /** Replace a run of existing text with an editable copy over a patch of the page's paper colour. */
+  const editTextBox = async (box: TextBox) => {
+    const fc = fabricRef.current;
+    if (!fc) return;
+    const { Rect, IText } = await import("fabric");
+    const { ink, paper } = sampleColors(pageCanvasRef.current, box);
+    const pad = Math.max(1, box.height * 0.12);
+    const cover = new Rect({
+      originX: "left", originY: "top",
+      left: box.left - pad, top: box.top - pad, width: box.width + pad * 2, height: box.height + pad * 2,
+      fill: paper, strokeWidth: 0, selectable: false, evented: false,
+    });
+    const text = new IText(box.text, {
+      originX: "left", originY: "top",
+      left: box.left, top: box.top, fontSize: box.height, lineHeight: 1,
+      fill: ink, fontFamily: box.family,
+    });
+    fc.add(cover);
+    fc.add(text);
+    fc.setActiveObject(text);
+    text.enterEditing();
+    text.selectAll();
+    fc.renderAll();
+    setEditedBoxes((prev) => new Set(prev).add(box.key));
+    setActiveTool("select");
+  };
 
   const handleRemove = useCallback(() => {
     if (fabricRef.current) { fabricRef.current.dispose(); fabricRef.current = null; }
@@ -360,7 +460,7 @@ export default function EditPage() {
       saveCurrentPageState();
       const finalStates = [...pageStatesRef.current];
       const finalRotations = [...pageRotationsRef.current];
-      const { PDFDocument, degrees, rgb } = await import("pdf-lib");
+      const { PDFDocument } = await import("pdf-lib");
       const origBytes = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(origBytes);
       const { StaticCanvas } = await import("fabric");
@@ -371,14 +471,14 @@ export default function EditPage() {
         const hasAnnotations = !!state?.json;
         if (additionalRot === 0 && !hasAnnotations) continue;
 
-        const pdfPage = pdfDoc.getPage(i);
         const pdfJsPage = await pdfDocRef.current.getPage(i + 1);
-        const vp = pdfJsPage.getViewport({ scale: scaleRef.current, rotation: additionalRot });
+        // Rasterize at twice the on-screen scale so text stays crisp when printed or zoomed.
+        const vp = pdfJsPage.getViewport({ scale: scaleRef.current * EXPORT_SCALE, rotation: additionalRot });
 
         // Create composite canvas: bg + annotations
         const offCanvas = document.createElement("canvas");
-        offCanvas.width = vp.width;
-        offCanvas.height = vp.height;
+        offCanvas.width = Math.round(vp.width);
+        offCanvas.height = Math.round(vp.height);
         const ctx = offCanvas.getContext("2d")!;
 
         // Render PDF background at the chosen rotation
@@ -386,13 +486,13 @@ export default function EditPage() {
 
         // Render Fabric annotations on top
         if (hasAnnotations) {
-          const sc = new StaticCanvas(undefined, { width: vp.width, height: vp.height });
+          const sc = new StaticCanvas(undefined, { width: vp.width / EXPORT_SCALE, height: vp.height / EXPORT_SCALE });
           await sc.loadFromJSON(state.json);
           sc.renderAll();
-          const annotDataUrl = sc.toDataURL({ format: "png", multiplier: 1 });
+          const annotDataUrl = sc.toDataURL({ format: "png", multiplier: EXPORT_SCALE });
           await new Promise<void>((resolve) => {
             const img = new Image();
-            img.onload = () => { ctx.drawImage(img, 0, 0); resolve(); };
+            img.onload = () => { ctx.drawImage(img, 0, 0, vp.width, vp.height); resolve(); };
             img.src = annotDataUrl;
           });
         }
@@ -402,18 +502,16 @@ export default function EditPage() {
         const pngBytes = Uint8Array.from(atob(compositeB64), (c) => c.charCodeAt(0));
         const pngImage = await pdfDoc.embedPng(pngBytes as Uint8Array<ArrayBuffer>);
 
-        // Compute new page size in PDF points
-        const origSize = pdfPage.getSize();
-        const is90or270 = additionalRot === 90 || additionalRot === 270;
-        const newW = is90or270 ? origSize.height : origSize.width;
-        const newH = is90or270 ? origSize.width : origSize.height;
+        // The page as shown, in PDF points (the viewport already accounts for rotation).
+        const newW = vp.width / (scaleRef.current * EXPORT_SCALE);
+        const newH = vp.height / (scaleRef.current * EXPORT_SCALE);
 
-        if (is90or270) pdfPage.setSize(newW, newH);
-        pdfPage.setRotation(degrees(0)); // baked into composite
-
-        // Cover existing content with white, then draw composite
-        pdfPage.drawRectangle({ x: 0, y: 0, width: newW, height: newH, color: rgb(1, 1, 1) });
-        pdfPage.drawImage(pngImage, { x: 0, y: 0, width: newW, height: newH });
+        // Swap in a fresh page holding only the composite. Painting over the old page
+        // would leave its text in the file, still searchable and copyable, which
+        // defeats editing or covering it.
+        pdfDoc.removePage(i);
+        const flat = pdfDoc.insertPage(i, [newW, newH]);
+        flat.drawImage(pngImage, { x: 0, y: 0, width: newW, height: newH });
       }
 
       const saved = await pdfDoc.save();
@@ -579,9 +677,28 @@ export default function EditPage() {
                 </div>
               )}
               {/* Single Fabric canvas: the PDF page is its background image, annotations sit on top */}
-              <div ref={wrapperRef} style={{ display: isLoadingPdf ? "none" : "inline-block" }} className="shadow-[0_8px_30px_rgba(0,0,0,.45)]">
+              <div ref={wrapperRef} style={{ display: isLoadingPdf ? "none" : "inline-block" }} className="relative shadow-[0_8px_30px_rgba(0,0,0,.45)]">
                 <canvas ref={fabricCanvasRef} className="block" />
+                {activeTool === "edittext" && !isLoadingPdf && (
+                  <div className="absolute inset-0 z-10" aria-label="Text on this page">
+                    {textBoxes.filter((b) => !editedBoxes.has(b.key)).map((b) => (
+                      <button
+                        key={b.key}
+                        type="button"
+                        aria-label={`Edit text: ${b.text}`}
+                        onClick={() => editTextBox(b)}
+                        className="absolute cursor-text rounded-[2px] bg-sky-400/10 outline outline-1 outline-sky-500/50 transition-colors hover:bg-sky-400/25 hover:outline-sky-500"
+                        style={{ left: b.left - 1, top: b.top - 1, width: b.width + 2, height: b.height + 2 }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
+              {activeTool === "edittext" && !isLoadingPdf && (
+                <p className="text-xs text-muted-foreground">
+                  {textBoxes.length ? "Click a line to change it. The page is saved as an image, so its text stops being selectable." : "This page has no text to edit. Scanned pages need OCR first."}
+                </p>
+              )}
               {pageRotations[currentPage] !== undefined && pageRotations[currentPage] !== 0 && (
                 <p className="text-xs text-muted-foreground">Page turned {pageRotations[currentPage]}°</p>
               )}

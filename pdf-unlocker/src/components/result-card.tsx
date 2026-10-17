@@ -1,15 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, Check, Download, Pencil, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, Download, Pencil, RotateCcw, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/pdf-utils";
 import { setHandoff } from "@/lib/handoff";
+import { getChain, recordResult, replaceVersionFile, rewindTo, subscribeChain, type Version } from "@/lib/versions";
 import { NEXT_STEPS } from "@/lib/next-steps";
 import { toolByHref as toolsByHref } from "@/lib/tools";
 
+
+/** "Original" or the tool that made the version, e.g. "Merge". */
+function versionLabel(v: Version): string {
+  return v.tool ? (toolsByHref.get(v.tool)?.label ?? "Edited") : "Original";
+}
+
+/** The document's versions this session; pick one to download it or go back to it. */
+function History({ chain, current, onGoBack }: { chain: Version[]; current: Version; onGoBack: (v: Version) => void }) {
+  const [picked, setPicked] = useState<Version | null>(null);
+  return (
+    <div className="space-y-2 border-t border-border pt-4">
+      <p className="font-label text-muted-foreground">Versions this session</p>
+      <ol className="flex flex-wrap items-center gap-1.5" aria-label="Versions">
+        {chain.map((v, i) => {
+          const isCurrent = v.id === current.id;
+          return (
+            <li key={v.id} className="flex items-center gap-1.5">
+              {i > 0 && <ArrowRight className="h-3 w-3 text-muted-foreground/60" aria-hidden />}
+              <button
+                type="button"
+                aria-current={isCurrent ? "step" : undefined}
+                aria-pressed={picked?.id === v.id}
+                disabled={isCurrent}
+                onClick={() => setPicked(picked?.id === v.id ? null : v)}
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                  isCurrent
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-foreground"
+                    : picked?.id === v.id
+                      ? "border-primary/60 bg-primary/10 text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {versionLabel(v)}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {picked && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md bg-background px-3 py-2 text-xs">
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            <span className="text-foreground">{picked.file.name}</span> · {formatSize(picked.file.size)}
+          </span>
+          <button type="button" onClick={() => downloadBlob(picked.file, picked.file.name)} className="underline underline-offset-4 hover:text-foreground">
+            Download this version
+          </button>
+          <button type="button" onClick={() => onGoBack(picked)} className="underline underline-offset-4 hover:text-foreground">
+            Go back to this version
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface Fact {
   label: string;
@@ -92,10 +148,39 @@ export function ResultCard({
 
   const next = isPdf ? (NEXT_STEPS[pathname] ?? []).map((h) => toolsByHref.get(h)).filter(Boolean) : [];
 
+  // Record this result as the newest version of the document (PDFs only;
+  // a ZIP or .txt can't be opened by the next tool).
+  useEffect(() => {
+    if (isPdf) recordResult(pathname, blob, fileName);
+  }, [blob, isPdf, pathname, fileName]);
+  const chain = useSyncExternalStore(subscribeChain, getChain, getChain);
+  const version = chain.find((v) => v.source === blob) ?? null;
+
+  /** The file to hand on: this version, renamed if the user renamed it. */
+  const handOffFile = () => {
+    if (version && version.file.name === finalName) return version.file;
+    const file = new File([blob], finalName, { type: blob.type });
+    if (version) replaceVersionFile(version.id, file);
+    return file;
+  };
+
   const openNext = (href: string) => {
-    setHandoff([new File([blob], finalName, { type: blob.type })]);
+    setHandoff([handOffFile()]);
     router.push(href);
   };
+
+  /** Go back to an earlier version: drop what came after and reopen it in the step that followed. */
+  const goBack = (target: Version) => {
+    const at = chain.findIndex((v) => v.id === target.id);
+    const nextTool = chain[at + 1]?.tool ?? pathname;
+    rewindTo(target.id);
+    setHandoff([target.file]);
+    if (nextTool === pathname) onReset();
+    else router.push(nextTool);
+  };
+
+  const position = version ? chain.findIndex((v) => v.id === version.id) : -1;
+  const previous = position > 0 ? chain[position - 1] : null;
 
   return (
     <div className={cn("grid gap-4", next.length > 0 && "lg:grid-cols-[minmax(0,1fr)_15rem]")} data-testid="result-card">
@@ -146,10 +231,17 @@ export function ResultCard({
             <Pencil className="h-4 w-4" /> Rename
           </Button>
           {actions}
+          {previous && (
+            <Button variant="outline" onClick={() => goBack(previous)} title={`Back to ${versionLabel(previous)}`}>
+              <Undo2 className="h-4 w-4" /> Undo
+            </Button>
+          )}
           <Button variant="ghost" onClick={onReset}>
             <RotateCcw className="h-4 w-4" /> {resetLabel}
           </Button>
         </div>
+
+        {version && chain.length > 1 && <History chain={chain} current={version} onGoBack={goBack} />}
       </div>
 
       {next.length > 0 && (

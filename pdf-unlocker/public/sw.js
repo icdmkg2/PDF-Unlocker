@@ -1,7 +1,7 @@
 // Offline support for PDF Studio. Caches the app itself, never user files:
 // every PDF is processed in the page and never passes through fetch().
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `pdf-studio-${VERSION}`;
 
 // Large files that only change when replaced on deploy. Bump VERSION when they do.
@@ -91,7 +91,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Hashed build output and engines: cache first.
-  if (url.pathname.startsWith("/_next/static/") || ENGINES.has(url.pathname)) {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/ocr/") || ENGINES.has(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>

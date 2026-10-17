@@ -52,8 +52,8 @@ describe("favorites", () => {
 describe("tool catalog", () => {
   it("lists every tool exactly once", () => {
     const hrefs = allTools.map((t) => t.href);
-    expect(hrefs).toHaveLength(24);
-    expect(new Set(hrefs).size).toBe(24);
+    expect(hrefs).toHaveLength(26);
+    expect(new Set(hrefs).size).toBe(26);
   });
 
   it("gives every group a description", () => {

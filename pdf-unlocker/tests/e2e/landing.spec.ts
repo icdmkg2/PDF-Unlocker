@@ -6,7 +6,7 @@ test("landing page lists every tool without the app sidebar", async ({ page }) =
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Work on PDFs");
   await expect(page.getByRole("heading", { name: "All tools" })).toBeVisible();
   const toolLinks = page.locator("#tools ul a");
-  await expect(toolLinks).toHaveCount(24);
+  await expect(toolLinks).toHaveCount(26);
   await expect(page.locator("aside")).toHaveCount(0);
   // No history yet, so no Recent section
   await expect(page.getByRole("heading", { name: "Recent" })).toHaveCount(0);
@@ -61,7 +61,7 @@ test("category chips narrow the catalog", async ({ page }) => {
   await page.getByRole("radio", { name: /Secure/ }).click();
   await expect(page.locator("#tools ul a")).toHaveCount(3);
   await page.getByRole("radio", { name: /^All/ }).click();
-  await expect(page.locator("#tools ul a")).toHaveCount(24);
+  await expect(page.locator("#tools ul a")).toHaveCount(26);
 });
 
 test("favorites: star on the landing page, see them in the sidebar, unstar from the tool page", async ({ page }) => {

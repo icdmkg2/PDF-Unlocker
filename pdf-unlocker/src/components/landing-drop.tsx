@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { inspectPdf, type PdfFacts } from "@/lib/pdf-inspect";
 import { suggestTools, type Suggestion } from "@/lib/suggest-tools";
 import { setHandoff } from "@/lib/handoff";
+import { noteInput } from "@/lib/versions";
 import { toolByHref as toolsByHref } from "@/lib/tools";
 
 
@@ -41,6 +42,7 @@ export function LandingDrop() {
     setState({ kind: "reading" });
     const facts = await Promise.all(files.map(inspectPdf));
     // Any tool opened from here on, including the catalog below, starts with this file.
+    noteInput(files, true);
     setHandoff(files);
     setState({ kind: "ready", files, facts, suggestions: suggestTools(facts) });
   }, []);

@@ -3,7 +3,7 @@ import {
   ImageIcon, Globe, Camera, Images, Archive,
   PenTool, RotateCw, Hash, Droplets, Crop,
   Unlock, Lock, PenLine, EyeOff, GitCompare,
-  FileType, Tags, ClipboardList, Image as ImageLucide,
+  FileType, Tags, ClipboardList, Image as ImageLucide, ScanText, Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -67,6 +67,7 @@ export const toolSections: ToolSection[] = [
       { label: "PDF to JPG", desc: "Pages as images", href: "/pdf-to-jpg", icon: Images },
       { label: "Extract text", desc: "Save text as .txt", href: "/extract-text", icon: FileType },
       { label: "Extract images", desc: "Embedded images, original quality", href: "/extract-images", icon: ImageLucide },
+      { label: "OCR", desc: "Make scanned PDFs searchable", href: "/ocr", icon: ScanText },
     ],
   },
   {
@@ -79,6 +80,11 @@ export const toolSections: ToolSection[] = [
       { label: "Metadata", desc: "Title, author, keywords", href: "/metadata", icon: Tags },
       { label: "PDF/A metadata", desc: "Experimental archive tags", href: "/pdf-to-pdfa", icon: Archive },
     ],
+  },
+  {
+    category: "Automate",
+    blurb: "Same steps, many files",
+    tools: [{ label: "Batch", desc: "Run steps on many PDFs at once", href: "/batch", icon: Layers }],
   },
 ];
 

@@ -44,3 +44,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /blob-report/
+
+# OCR engine, copied from node_modules at build time
+/public/ocr/

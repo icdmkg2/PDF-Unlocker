@@ -22,5 +22,6 @@ export const NEXT_STEPS: Record<string, string[]> = {
   "/jpg-to-pdf": ["/compress", "/merge", "/page-numbers"],
   "/html-to-pdf": ["/compress", "/merge"],
   "/scan": ["/compress", "/merge", "/protect"],
+  "/ocr": ["/compress", "/edit", "/protect"],
   "/pdf-to-pdfa": ["/protect", "/compress"],
 };

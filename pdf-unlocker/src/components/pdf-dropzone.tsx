@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { UploadCloud, CheckCircle2, X } from "lucide-react";
 import { takeHandoff } from "@/lib/handoff";
+import { noteInput } from "@/lib/versions";
 
 interface PdfDropzoneProps {
   onFiles: (files: File[]) => void;
@@ -32,7 +33,11 @@ export function PdfDropzone({
   useEffect(() => {
     if (kind !== "pdf") return;
     const handed = takeHandoff();
-    if (handed) onFiles(multiple ? handed : handed.slice(0, 1));
+    if (handed) {
+      const files = multiple ? handed : handed.slice(0, 1);
+      noteInput(files, false);
+      onFiles(files);
+    }
   }, [onFiles, multiple, kind]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -53,7 +58,10 @@ export function PdfDropzone({
       e.stopPropagation();
       setIsDragging(false);
       const dropped = Array.from(e.dataTransfer.files).filter(matches);
-      if (dropped.length) onFiles(dropped);
+      if (dropped.length) {
+        noteInput(dropped, true);
+        onFiles(dropped);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onFiles, kind]
@@ -61,7 +69,10 @@ export function PdfDropzone({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
-    if (selected.length) onFiles(selected);
+    if (selected.length) {
+      noteInput(selected, true);
+      onFiles(selected);
+    }
     e.target.value = "";
   };
 
