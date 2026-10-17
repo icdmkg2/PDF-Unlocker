@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { toolSections } from "@/lib/tools";
+import { allTools } from "@/lib/tools";
 
 /** Registers /sw.js in production and asks it to cache every tool page for offline use. */
 export function ServiceWorker() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
 
-    const urls = ["/", ...toolSections.flatMap((s) => s.tools.map((t) => t.href))];
+    const urls = ["/", ...allTools.map((t) => t.href)];
     navigator.serviceWorker
       .register("/sw.js")
       .then(() => navigator.serviceWorker.ready)

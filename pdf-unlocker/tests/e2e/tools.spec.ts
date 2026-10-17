@@ -36,12 +36,12 @@ test("extract images finds embedded images, and explains when there are none", a
   await page.goto("/extract-images");
   const withImage = Buffer.from(await makePdfWithImage(makePng(40, 40, [10, 200, 90])));
   await upload(page, [{ name: "photo.pdf", mimeType: "application/pdf", buffer: withImage }]);
-  await page.getByRole("button", { name: "Extract Images" }).click();
+  await page.getByRole("button", { name: "Extract Images", exact: true }).click();
   await expect(page.getByText("1 image found")).toBeVisible();
 
   await page.getByRole("button", { name: "Start Over" }).click();
   await upload(page, [await pdfFile("text-only.pdf", 2)]);
-  await page.getByRole("button", { name: "Extract Images" }).click();
+  await page.getByRole("button", { name: "Extract Images", exact: true }).click();
   await expect(page.getByText("This PDF has no embedded images")).toBeVisible();
 });
 

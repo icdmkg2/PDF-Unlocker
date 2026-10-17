@@ -8,9 +8,8 @@ import { cn } from "@/lib/utils";
 import { downloadBlob } from "@/lib/pdf-utils";
 import { setHandoff } from "@/lib/handoff";
 import { NEXT_STEPS } from "@/lib/next-steps";
-import { toolSections } from "@/lib/tools";
+import { toolByHref as toolsByHref } from "@/lib/tools";
 
-const toolsByHref = new Map(toolSections.flatMap((s) => s.tools).map((t) => [t.href, t]));
 
 export interface Fact {
   label: string;

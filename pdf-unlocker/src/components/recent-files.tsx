@@ -10,10 +10,9 @@ import {
   listHistory,
   type HistoryEntry,
 } from "@/lib/local-history";
-import { toolSections } from "@/lib/tools";
+import { toolByHref as toolsByHref } from "@/lib/tools";
 
 const SHOWN = 6;
-const toolsByHref = new Map(toolSections.flatMap((s) => s.tools).map((t) => [t.href, t]));
 
 function timeAgo(ts: number, now: number): string {
   const s = Math.max(0, Math.round((now - ts) / 1000));

@@ -1,5 +1,6 @@
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CurrentToolFavorite } from "@/components/favorites";
 
 interface ToolLayoutProps {
   title: string;
@@ -36,9 +37,12 @@ export function ToolLayout({
             <Icon className="h-5 w-5 text-foreground" />
           </div>
           <div className="min-w-0 pt-0.5">
-            <h1 className="font-display text-2xl tracking-tight text-foreground sm:text-[1.75rem]">
-              {title}
-            </h1>
+            <div className="flex items-center gap-1">
+              <h1 className="font-display text-2xl tracking-tight text-foreground sm:text-[1.75rem]">
+                {title}
+              </h1>
+              <CurrentToolFavorite />
+            </div>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               {description}
             </p>

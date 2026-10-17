@@ -177,8 +177,20 @@
 .ed-ring { stroke-dasharray: 1; animation-name: ed-ring; animation-timing-function: ease-in-out; }
 @keyframes ed-ring { 0%, 25% { stroke-dashoffset: 1; opacity: 0; } 25.2% { stroke-dashoffset: .99; opacity: 1; } 31%, 95% { stroke-dashoffset: 0; opacity: 1; } 98%, 100% { stroke-dashoffset: 0; opacity: 0; } }
 
-.ed-name { animation-name: ed-name; animation-timing-function: steps(11, end); }
-@keyframes ed-name { 0%, 40% { clip-path: inset(0 100% 0 0); opacity: 1; } 47.5%, 95% { clip-path: inset(0 0 0 0); opacity: 1; } 98%, 100% { clip-path: inset(0 0 0 0); opacity: 0; } }
+/* Typed text: characters appear via generated keyframes in edit-demo.tsx; this only fades it at the loop's end. */
+.ed-name { animation-name: ed-fade-out; }
+@keyframes ed-fade-out { 0%, 95% { opacity: 1; } 98%, 100% { opacity: 0; } }
+
+/* Selection frame and caret while a text box is being typed in */
+.ed-tbox { animation-name: ed-tbox; }
+@keyframes ed-tbox { 0%, 39.4% { opacity: 0; } 39.5%, 48.5% { opacity: 1; } 49%, 100% { opacity: 0; } }
+.ed-nbox { animation-name: ed-nbox; }
+@keyframes ed-nbox { 0%, 57.9% { opacity: 0; } 58%, 64.5% { opacity: 1; } 65%, 100% { opacity: 0; } }
+.ed .ed-caret { animation: ed-caret var(--ed-t) step-end infinite both, ed-blink 1.06s step-end infinite; }
+.ed .ed-ncaret { animation: ed-ncaret var(--ed-t) step-end infinite both, ed-blink 1.06s step-end infinite; }
+@keyframes ed-caret { 0%, 39.9% { visibility: hidden; } 40%, 48.4% { visibility: visible; } 48.5%, 100% { visibility: hidden; } }
+@keyframes ed-ncaret { 0%, 58.1% { visibility: hidden; } 58.2%, 64.4% { visibility: visible; } 64.5%, 100% { visibility: hidden; } }
+@keyframes ed-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
 .ed-note { animation-name: ed-note; }
 @keyframes ed-note {
@@ -187,8 +199,6 @@
   59.5%, 95% { opacity: 1; transform: rotate(3deg) scale(1); }
   98%, 100% { opacity: 0; transform: rotate(3deg) scale(1); }
 }
-.ed-note-text { animation-name: ed-note-text; animation-timing-function: steps(30, end); }
-@keyframes ed-note-text { 0%, 59% { clip-path: inset(0 0 100% 0); } 63%, 100% { clip-path: inset(0 0 0 0); } }
 
 .ed-sig { stroke-dasharray: 1; animation-name: ed-sig; animation-timing-function: cubic-bezier(.4,.1,.6,.9); }
 @keyframes ed-sig { 0%, 71% { stroke-dashoffset: 1; opacity: 0; } 71.2% { stroke-dashoffset: .99; opacity: 1; } 81%, 95% { stroke-dashoffset: 0; opacity: 1; } 98%, 100% { stroke-dashoffset: 0; opacity: 0; } }
@@ -247,11 +257,11 @@
   31% { left: 27.6%; top: 38.1%; }
   33% { left: 27.6%; top: 38.1%; }
   35%, 37.5% { left: 54%; top: 92%; }
-  39.5% { left: 23.1%; top: 50.3%; animation-timing-function: linear; }
-  47.5% { left: 36.2%; top: 50.3%; }
-  50% { left: 36.2%; top: 50.3%; }
+  39.5% { left: 24.5%; top: 50.8%; }
+  41.5%, 50% { left: 31%; top: 57%; }
   52%, 54.5% { left: 61.5%; top: 92%; }
-  57%, 63% { left: 71.2%; top: 19.1%; }
+  57% { left: 71.2%; top: 19.1%; }
+  59%, 63% { left: 82%; top: 28%; }
   66.5%, 69% { left: 69.1%; top: 92%; }
   71% { left: 15.2%; top: 63.5%; animation-timing-function: linear; }
   73.5% { left: 22%; top: 60%; animation-timing-function: linear; }
@@ -263,6 +273,12 @@
   93% { left: 86.2%; top: 5.1%; opacity: 1; }
   95%, 100% { left: 86.2%; top: 5.1%; opacity: 0; }
 }
+
+/* Pointer shape: arrow, or I-beam while the Text tool is over the page and while typing a note */
+.ed-arrow { animation-name: ed-arrow; animation-timing-function: step-end; }
+.ed-ibeam { animation-name: ed-ibeam; animation-timing-function: step-end; }
+@keyframes ed-arrow { 0%, 38.4% { opacity: 1; } 38.5%, 49.9% { opacity: 0; } 50%, 57.9% { opacity: 1; } 58%, 63.9% { opacity: 0; } 64%, 100% { opacity: 1; } }
+@keyframes ed-ibeam { 0%, 38.4% { opacity: 0; } 38.5%, 49.9% { opacity: 1; } 50%, 57.9% { opacity: 0; } 58%, 63.9% { opacity: 1; } 64%, 100% { opacity: 0; } }
 
 /* Ripple on each click */
 .ed-click { opacity: 0; animation-name: ed-click; animation-timing-function: ease-out; }
@@ -280,5 +296,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ed [class*="ed-"] { animation: none !important; }
-  .ed-cursor, .ed-toast, .ed-tip, .ed-click { display: none; }
+  .ed-cursor, .ed-toast, .ed-tip, .ed-click, .ed-tbox, .ed-nbox, .ed-caret, .ed-ncaret { display: none; }
 }

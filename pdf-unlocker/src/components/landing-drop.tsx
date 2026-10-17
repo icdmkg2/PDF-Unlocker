@@ -9,9 +9,8 @@ import { cn } from "@/lib/utils";
 import { inspectPdf, type PdfFacts } from "@/lib/pdf-inspect";
 import { suggestTools, type Suggestion } from "@/lib/suggest-tools";
 import { setHandoff } from "@/lib/handoff";
-import { toolSections } from "@/lib/tools";
+import { toolByHref as toolsByHref } from "@/lib/tools";
 
-const toolsByHref = new Map(toolSections.flatMap((s) => s.tools).map((t) => [t.href, t]));
 
 type State =
   | { kind: "empty" }

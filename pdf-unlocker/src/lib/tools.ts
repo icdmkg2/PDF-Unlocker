@@ -16,60 +16,73 @@ export type Tool = {
 
 export type ToolSection = {
   category: string;
+  /** One line on what the group is for. */
+  blurb: string;
   tools: Tool[];
 };
 
-/** Single source for the sidebar and the landing catalog. */
+/**
+ * Single source for the sidebar and the landing catalog, grouped by what
+ * you are trying to do rather than by file format.
+ */
 export const toolSections: ToolSection[] = [
   {
-    category: "Organize",
+    category: "Pages",
+    blurb: "Combine, cut, reorder and straighten",
     tools: [
       { label: "Merge", desc: "Combine PDFs into one file", href: "/merge", icon: GitMerge },
-      { label: "Split", desc: "Extract pages or ranges", href: "/split", icon: Scissors },
+      { label: "Split", desc: "Pull out pages or cut into parts", href: "/split", icon: Scissors },
       { label: "Organize", desc: "Reorder and delete pages", href: "/organize", icon: LayoutGrid },
-      { label: "Compress", desc: "Shrink size, keep text", href: "/compress", icon: Minimize2 },
-      { label: "Repair", desc: "Rebuild broken structure", href: "/repair", icon: Wrench },
-    ],
-  },
-  {
-    category: "Edit",
-    tools: [
-      { label: "Edit", desc: "Annotate, draw and sign", href: "/edit", icon: PenTool },
       { label: "Rotate", desc: "Fix page orientation", href: "/rotate", icon: RotateCw },
-      { label: "Page numbers", desc: "Stamp numbers anywhere", href: "/page-numbers", icon: Hash },
-      { label: "Watermark", desc: "Text or image overlay", href: "/watermark", icon: Droplets },
       { label: "Crop", desc: "Trim page margins", href: "/crop", icon: Crop },
-      { label: "Fill forms", desc: "Fill and flatten fields", href: "/forms", icon: ClipboardList },
-      { label: "Metadata", desc: "Title, author, keywords", href: "/metadata", icon: Tags },
     ],
   },
   {
-    category: "Security",
+    category: "Edit & sign",
+    blurb: "Write on it, fill it in, sign it",
     tools: [
-      { label: "Unlock", desc: "Decrypt password-protected files", href: "/unlock", icon: Unlock },
-      { label: "Protect", desc: "Encrypt with a password", href: "/protect", icon: Lock },
-      { label: "Sign", desc: "Stamp a drawn signature", href: "/sign", icon: PenLine },
-      { label: "Redact", desc: "Burn out sensitive content", href: "/redact", icon: EyeOff },
-      { label: "Compare", desc: "Visual and text diff", href: "/compare", icon: GitCompare },
+      { label: "Edit", desc: "Write, highlight, draw and sign", href: "/edit", icon: PenTool },
+      { label: "Sign", desc: "Draw a signature and place it", href: "/sign", icon: PenLine },
+      { label: "Fill forms", desc: "Type into a form's fields", href: "/forms", icon: ClipboardList },
+      { label: "Page numbers", desc: "Number every page", href: "/page-numbers", icon: Hash },
+      { label: "Watermark", desc: "Stamp text or an image", href: "/watermark", icon: Droplets },
     ],
   },
   {
-    category: "Convert to PDF",
+    category: "Secure",
+    blurb: "Lock, unlock and black out",
+    tools: [
+      { label: "Protect", desc: "Lock with a password", href: "/protect", icon: Lock },
+      { label: "Unlock", desc: "Remove a password", href: "/unlock", icon: Unlock },
+      { label: "Redact", desc: "Black out private details for good", href: "/redact", icon: EyeOff },
+    ],
+  },
+  {
+    category: "Convert",
+    blurb: "Into PDF and out of it",
     tools: [
       { label: "JPG to PDF", desc: "Images into a document", href: "/jpg-to-pdf", icon: ImageIcon },
-      { label: "HTML to PDF", desc: "Render HTML to pages", href: "/html-to-pdf", icon: Globe },
       { label: "Scan", desc: "Camera or photos to PDF", href: "/scan", icon: Camera },
-    ],
-  },
-  {
-    category: "Convert from PDF",
-    tools: [
+      { label: "HTML to PDF", desc: "Render HTML to pages", href: "/html-to-pdf", icon: Globe },
       { label: "PDF to JPG", desc: "Pages as images", href: "/pdf-to-jpg", icon: Images },
       { label: "Extract text", desc: "Save text as .txt", href: "/extract-text", icon: FileType },
       { label: "Extract images", desc: "Embedded images, original quality", href: "/extract-images", icon: ImageLucide },
-      { label: "PDF/A metadata", desc: "Experimental XMP tags", href: "/pdf-to-pdfa", icon: Archive },
+    ],
+  },
+  {
+    category: "Optimize & check",
+    blurb: "Shrink, fix and inspect",
+    tools: [
+      { label: "Compress", desc: "Shrink size, keep text", href: "/compress", icon: Minimize2 },
+      { label: "Repair", desc: "Rebuild a broken file", href: "/repair", icon: Wrench },
+      { label: "Compare", desc: "See what changed between versions", href: "/compare", icon: GitCompare },
+      { label: "Metadata", desc: "Title, author, keywords", href: "/metadata", icon: Tags },
+      { label: "PDF/A metadata", desc: "Experimental archive tags", href: "/pdf-to-pdfa", icon: Archive },
     ],
   },
 ];
+
+export const allTools: Tool[] = toolSections.flatMap((s) => s.tools);
+export const toolByHref = new Map(allTools.map((t) => [t.href, t]));
 
 export const TOOL_COUNT = toolSections.reduce((n, s) => n + s.tools.length, 0);
