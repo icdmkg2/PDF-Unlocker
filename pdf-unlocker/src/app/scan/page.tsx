@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { ToolLayout } from "@/components/tool-layout";
 import { Camera, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, ImageIcon, QrCode } from "lucide-react";
@@ -248,11 +248,14 @@ export default function ScanPage() {
   );
 }
 
+const noopSubscribe = () => () => {};
+
 function QrCodeDisplay() {
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    setUrl(window.location.origin + "/scan");
-  }, []);
+  const url = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.origin + "/scan",
+    () => ""
+  );
 
   if (!url) return null;
 

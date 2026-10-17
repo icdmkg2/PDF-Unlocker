@@ -6,14 +6,14 @@ import { AlertCircle } from "lucide-react";
 import { isPdfEncrypted } from "@/lib/pdf-utils";
 
 export function EncryptedNotice({ file }: { file: File | null }) {
-  const [encrypted, setEncrypted] = useState(false);
+  const [checked, setChecked] = useState<{ file: File; encrypted: boolean } | null>(null);
+  const encrypted = checked?.file === file && checked.encrypted;
 
   useEffect(() => {
     let cancelled = false;
-    setEncrypted(false);
     if (!file) return;
     isPdfEncrypted(file).then((v) => {
-      if (!cancelled) setEncrypted(v);
+      if (!cancelled) setChecked({ file, encrypted: v });
     });
     return () => {
       cancelled = true;

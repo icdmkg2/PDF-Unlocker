@@ -7,7 +7,7 @@ import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
 import { FileType, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 import { extractTextFromPDF } from "@/lib/pdf-extract-text";
-import { downloadBlob, revokeUrl } from "@/lib/pdf-utils";
+import { downloadBlob } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function ExtractTextPage() {

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
-import { Images, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Images, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function PdfToJpgPage() {
   const [file, setFile] = useState<File | null>(null);

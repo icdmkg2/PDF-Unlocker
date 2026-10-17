@@ -9,7 +9,7 @@ import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EncryptedNotice } from "@/components/encrypted-notice";
 import { Tags, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { readPdfMetadata, writePdfMetadata, type PdfMetadata } from "@/lib/pdf-metadata";
-import { downloadBytes, revokeUrl } from "@/lib/pdf-utils";
+import { revokeUrl } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function MetadataPage() {

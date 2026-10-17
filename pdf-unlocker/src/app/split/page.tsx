@@ -10,7 +10,7 @@ import { EncryptedNotice } from "@/components/encrypted-notice";
 import { Scissors, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Archive } from "lucide-react";
 import { splitPDF, parseRanges, splitToZip } from "@/lib/pdf-split";
 import { PDFDocument } from "pdf-lib";
-import { downloadBlob, revokeUrl } from "@/lib/pdf-utils";
+import { downloadBlob } from "@/lib/pdf-utils";
 import { addHistoryEntry } from "@/lib/local-history";
 
 export default function SplitPage() {

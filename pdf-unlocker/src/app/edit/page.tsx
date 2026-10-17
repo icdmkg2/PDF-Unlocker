@@ -333,7 +333,6 @@ export default function EditPage() {
     };
     fc.on("mouse:down", handleMouseDown);
     return () => fc.off("mouse:down", handleMouseDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fabricVersion, activeTool, color, strokeWidth, fontSize]);
 
   const deleteSelected = useCallback(() => {

@@ -12,7 +12,6 @@ export default function RedactPage() {
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
-  const [pdfPageSize, setPdfPageSize] = useState({ width: 0, height: 0 });
   const [redactions, setRedactions] = useState<Redaction[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -22,7 +21,6 @@ export default function RedactPage() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const renderPage = useCallback(async (f: File, page: number) => {
@@ -37,7 +35,6 @@ export default function RedactPage() {
       const s = Math.max(0.5, Math.min(containerW - 32, 800) / 816 * 1.5);
       setScale(s);
       const viewport = p.getViewport({ scale: s });
-      setPdfPageSize({ width: viewport.width / s, height: viewport.height / s });
       bgCanvasRef.current.width = viewport.width;
       bgCanvasRef.current.height = viewport.height;
       const ctx = bgCanvasRef.current.getContext("2d")!;
@@ -156,8 +153,6 @@ export default function RedactPage() {
   };
 
   const pageRedactions = redactions.filter((r) => r.pageIndex === currentPage - 1);
-  const canvasW = bgCanvasRef.current?.width ?? 0;
-  const canvasH = bgCanvasRef.current?.height ?? 0;
 
   return (
     <ToolLayout

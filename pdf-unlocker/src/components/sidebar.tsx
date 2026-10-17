@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
@@ -14,9 +14,12 @@ function NavContent({ pathname, onClose }: { pathname: string; onClose?: () => v
     () => new Set(navSections.map((s) => s.category))
   );
 
-  useEffect(() => {
-    if (activeCat) setOpen((prev) => new Set([...prev, activeCat]));
-  }, [activeCat]);
+  // Re-open the active tool's section when navigation moves into it.
+  const [prevActive, setPrevActive] = useState(activeCat);
+  if (activeCat !== prevActive) {
+    setPrevActive(activeCat);
+    if (activeCat && !open.has(activeCat)) setOpen(new Set([...open, activeCat]));
+  }
 
   const toggle = (cat: string) => {
     setOpen((prev) => {
