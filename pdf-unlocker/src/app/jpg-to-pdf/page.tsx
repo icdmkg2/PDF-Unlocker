@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { ImageIcon, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, GripVertical } from "lucide-react";
 import { imagesToPDF, type ImagePageMode } from "@/lib/images-to-pdf";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function JpgToPdfPage() {
   const [images, setImages] = useState<File[]>([]);
@@ -59,6 +60,7 @@ export default function JpgToPdfPage() {
       const bytes = await imagesToPDF(images, pageMode);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "JPG to PDF", fileName: `${images.length} images`, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
     } finally {

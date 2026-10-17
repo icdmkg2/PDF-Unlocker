@@ -10,6 +10,7 @@ import { RotateCw, RotateCcw, Download, Loader2, CheckCircle2, AlertCircle } fro
 import { rotatePDF } from "@/lib/pdf-rotate";
 import { PDFDocument } from "pdf-lib";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 const ANGLES = [
   { label: "90° CW", value: 90 as const },
@@ -63,6 +64,7 @@ export default function RotatePage() {
       const bytes = await rotatePDF(file, indices, angle);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Rotate", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rotation failed.");
     } finally {

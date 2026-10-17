@@ -9,6 +9,7 @@ import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Droplets, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { addWatermark } from "@/lib/pdf-watermark";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 const FONT_SIZES = [24, 36, 48, 72];
 
@@ -72,6 +73,7 @@ export default function WatermarkPage() {
       });
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Watermark", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Watermark failed.");
     } finally {

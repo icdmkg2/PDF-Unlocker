@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { GitMerge, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, GripVertical } from "lucide-react";
 import { mergePDFs } from "@/lib/pdf-merge";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function MergePage() {
   const [files, setFiles] = useState<File[]>([]);
@@ -47,6 +48,7 @@ export default function MergePage() {
       const bytes = await mergePDFs(files);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Merge", fileName: `${files.length} files merged`, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Merge failed.");
     } finally {

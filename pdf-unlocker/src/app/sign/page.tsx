@@ -10,6 +10,7 @@ import { PenLine, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, Trash
 import { signPDF } from "@/lib/pdf-sign";
 import { cn } from "@/lib/utils";
 import { PDFDocument } from "pdf-lib";
+import { addHistoryEntry } from "@/lib/local-history";
 
 const SIZE_OPTIONS = [
   { label: "Small", width: 100, height: 40 },
@@ -121,6 +122,7 @@ export default function SignPage() {
       });
       const blob = new Blob([out as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Sign", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signing failed.");
     } finally {

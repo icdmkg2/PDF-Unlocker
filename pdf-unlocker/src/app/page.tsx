@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { toolSections, TOOL_COUNT } from "@/lib/tools";
+import { RecentFiles } from "@/components/recent-files";
 
 const principles = [
   {
@@ -114,6 +115,7 @@ export default function LandingPage() {
         </section>
 
         <section id="tools" className="mx-auto max-w-6xl scroll-mt-6 px-6 py-16 sm:px-8 sm:py-20">
+          <RecentFiles />
           <h2 className="font-display text-3xl sm:text-4xl">All tools</h2>
 
           <div className="mt-10 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">

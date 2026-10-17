@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { EyeOff, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { applyRedactions, type Redaction } from "@/lib/pdf-redact";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function RedactPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -128,6 +129,7 @@ export default function RedactPage() {
       const bytes = await applyRedactions(file, redactions);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Redact", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Redaction failed.");
     } finally {

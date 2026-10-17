@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Crop, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { cropPDF, type CropMode } from "@/lib/pdf-crop";
+import { addHistoryEntry } from "@/lib/local-history";
 
 interface Bounds { x1: number; y1: number; x2: number; y2: number; }
 const PT_TO_MM = 25.4 / 72;
@@ -127,6 +128,7 @@ export default function CropPage() {
       const bytes = await cropPDF(file, { top, right, bottom, left }, allPages ? "all" : [0], cropMode);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Crop", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Crop failed.");
     } finally {

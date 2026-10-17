@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { Camera, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle, ImageIcon, QrCode } from "lucide-react";
 import { imagesToPDF } from "@/lib/images-to-pdf";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 type Tab = "camera" | "upload" | "qr";
 
@@ -78,6 +79,7 @@ export default function ScanPage() {
       const bytes = await imagesToPDF(capturedImages);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Scan", fileName: `${capturedImages.length} scanned pages`, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed.");
     } finally {

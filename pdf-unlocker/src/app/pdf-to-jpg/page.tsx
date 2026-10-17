@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Images, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function PdfToJpgPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -88,6 +89,7 @@ export default function PdfToJpgPage() {
         }
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
+        void addHistoryEntry({ tool: "PDF to JPG", fileName: file.name, size: zipBlob.size });
         const a = document.createElement("a");
         a.href = url;
         a.download = `${file.name.replace(/\.pdf$/i, "")}_pages.zip`;

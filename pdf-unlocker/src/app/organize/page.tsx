@@ -6,6 +6,7 @@ import { ToolLayout } from "@/components/tool-layout";
 import { PdfDropzone } from "@/components/pdf-dropzone";
 import { LayoutGrid, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { getPageThumbnails, reorderPages } from "@/lib/pdf-organize";
+import { addHistoryEntry } from "@/lib/local-history";
 
 export default function OrganizePage() {
   const [file, setFile] = useState<File | null>(null);
@@ -68,6 +69,7 @@ export default function OrganizePage() {
       const bytes = await reorderPages(file, order);
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Organize", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reorganize pages.");
     } finally {

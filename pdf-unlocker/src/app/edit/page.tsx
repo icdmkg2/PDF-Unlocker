@@ -12,6 +12,7 @@ import {
   RotateCw, Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 type Tool = "select" | "pen" | "highlight" | "rect" | "ellipse" | "line" | "text" | "sticky" | "signature" | "eraser";
 
@@ -408,6 +409,7 @@ export default function EditPage() {
       const saved = await pdfDoc.save();
       const blob = new Blob([saved as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
+      void addHistoryEntry({ tool: "Edit", fileName: file.name, size: blob.size });
       const a = document.createElement("a"); a.href = url; a.download = `edited_${file.name}`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (err) {

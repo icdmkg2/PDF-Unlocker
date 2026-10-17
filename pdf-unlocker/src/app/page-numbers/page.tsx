@@ -9,6 +9,7 @@ import { PdfDropzone } from "@/components/pdf-dropzone";
 import { Hash, Download, RotateCcw, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { addPageNumbers, type PageNumberPosition, type PageNumberFormat } from "@/lib/pdf-page-numbers";
 import { cn } from "@/lib/utils";
+import { addHistoryEntry } from "@/lib/local-history";
 
 const POSITIONS: { label: string; value: PageNumberPosition; col: number; row: number }[] = [
   { label: "TL", value: "top-left", col: 1, row: 1 },
@@ -67,6 +68,7 @@ export default function PageNumbersPage() {
       });
       const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       setResultUrl(URL.createObjectURL(blob));
+      void addHistoryEntry({ tool: "Page numbers", fileName: file.name, size: blob.size });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add page numbers.");
     } finally {
