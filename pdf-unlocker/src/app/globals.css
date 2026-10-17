@@ -157,3 +157,107 @@
     24px 24px 0 -1px #141414,
     24px 24px 0 0 #222;
 }
+
+/* ── Landing page edit demo ──────────────────────────────────────────────
+   One 18s loop. Each element's keyframes cover the whole loop, so every
+   part stays in sync: type → write → highlight → note → redact → sign →
+   saved → fade and restart. Base styles are the finished page, which is
+   what shows with reduced motion. */
+.demo { --demo-t: 18s; }
+.demo [class*="demo-"] { animation-duration: var(--demo-t); animation-iteration-count: infinite; animation-fill-mode: both; }
+
+.demo-title { animation-name: demo-type; animation-timing-function: steps(15, end); }
+@keyframes demo-type {
+  0%, 2% { clip-path: inset(0 100% 0 0); opacity: 1; }
+  12%, 94% { clip-path: inset(0 0 0 0); opacity: 1; }
+  98%, 100% { clip-path: inset(0 0 0 0); opacity: 0; }
+}
+.demo-meta { animation-name: demo-meta; }
+@keyframes demo-meta { 0%, 12% { opacity: 0; } 15%, 94% { opacity: 1; } 98%, 100% { opacity: 0; } }
+
+.demo-line-1 { animation-name: demo-write-1; }
+.demo-line-2 { animation-name: demo-write-2; }
+.demo-line-3 { animation-name: demo-write-3; }
+.demo-line-4 { animation-name: demo-write-4; }
+.demo-line-5 { animation-name: demo-write-5; }
+@keyframes demo-write-1 { 0%, 15% { clip-path: inset(0 100% 0 0); opacity: 1; } 20%, 94% { clip-path: inset(0 -2% 0 0); opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes demo-write-2 { 0%, 20% { clip-path: inset(0 100% 0 0); opacity: 1; } 25%, 94% { clip-path: inset(0 -2% 0 0); opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes demo-write-3 { 0%, 25% { clip-path: inset(0 100% 0 0); opacity: 1; } 30%, 94% { clip-path: inset(0 -2% 0 0); opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes demo-write-4 { 0%, 30% { clip-path: inset(0 100% 0 0); opacity: 1; } 35%, 94% { clip-path: inset(0 -2% 0 0); opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes demo-write-5 { 0%, 35% { clip-path: inset(0 100% 0 0); opacity: 1; } 40%, 94% { clip-path: inset(0 -2% 0 0); opacity: 1; } 98%, 100% { opacity: 0; } }
+
+.demo-hl { transform-origin: left center; animation-name: demo-hl; animation-timing-function: ease-out; }
+@keyframes demo-hl { 0%, 43% { transform: scaleX(0); } 48%, 100% { transform: scaleX(1); } }
+
+.demo-note { animation-name: demo-note; }
+@keyframes demo-note {
+  0%, 51% { opacity: 0; transform: rotate(3deg) scale(.6); }
+  53% { opacity: 1; transform: rotate(3deg) scale(1.06); }
+  55%, 94% { opacity: 1; transform: rotate(3deg) scale(1); }
+  98%, 100% { opacity: 0; transform: rotate(3deg) scale(1); }
+}
+
+.demo-redact { transform-origin: left center; animation-name: demo-redact; animation-timing-function: ease-in-out; }
+@keyframes demo-redact { 0%, 59% { transform: scaleX(0); } 64%, 100% { transform: scaleX(1); } }
+
+.demo-sig-path { stroke-dasharray: 1; animation-name: demo-sign; animation-timing-function: cubic-bezier(.45,.05,.55,.95); }
+@keyframes demo-sign { 0%, 67% { stroke-dashoffset: 1; opacity: 1; } 79%, 94% { stroke-dashoffset: 0; opacity: 1; } 98%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+
+.demo-date { animation-name: demo-date; }
+@keyframes demo-date { 0%, 79% { opacity: 0; } 82%, 94% { opacity: 1; } 98%, 100% { opacity: 0; } }
+
+.demo-saved { animation-name: demo-saved; }
+@keyframes demo-saved {
+  0%, 84% { opacity: 0; transform: translateY(8px); }
+  86%, 93% { opacity: 1; transform: translateY(0); }
+  96%, 100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Step label in the sheet header: one visible at a time. */
+.demo-step { opacity: 0; }
+.demo-step-0 { animation-name: demo-step-0; }
+.demo-step-1 { animation-name: demo-step-1; }
+.demo-step-2 { animation-name: demo-step-2; }
+.demo-step-3 { animation-name: demo-step-3; }
+.demo-step-4 { animation-name: demo-step-4; }
+.demo-step-5 { animation-name: demo-step-5; }
+@keyframes demo-step-0 { 0%, 40% { opacity: 1; } 41%, 100% { opacity: 0; } }
+@keyframes demo-step-1 { 0%, 41% { opacity: 0; } 42%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes demo-step-2 { 0%, 49% { opacity: 0; } 50%, 57% { opacity: 1; } 58%, 100% { opacity: 0; } }
+@keyframes demo-step-3 { 0%, 57% { opacity: 0; } 58%, 65% { opacity: 1; } 66%, 100% { opacity: 0; } }
+@keyframes demo-step-4 { 0%, 65% { opacity: 0; } 66%, 83% { opacity: 1; } 84%, 100% { opacity: 0; } }
+@keyframes demo-step-5 { 0%, 83% { opacity: 0; } 84%, 96% { opacity: 1; } 97%, 100% { opacity: 0; } }
+
+/* The cursor visits each edit. Positions are % of the page. */
+.demo-cursor { animation-name: demo-cursor; animation-timing-function: ease-in-out; }
+@keyframes demo-cursor {
+  0% { left: 50%; top: 40%; opacity: 0; }
+  2% { left: 9%; top: 12%; opacity: 1; }
+  12% { left: 40%; top: 14%; }
+  15% { left: 9%; top: 31%; }
+  20% { left: 86%; top: 33%; }
+  25% { left: 62%; top: 43%; }
+  30% { left: 74%; top: 49%; }
+  35% { left: 80%; top: 55%; }
+  40% { left: 70%; top: 62%; }
+  43% { left: 10%; top: 43%; }
+  48% { left: 86%; top: 43%; }
+  51%, 55% { left: 82%; top: 11%; }
+  59% { left: 21%; top: 62%; }
+  64% { left: 58%; top: 62%; }
+  67% { left: 12%; top: 80%; }
+  70% { left: 22%; top: 77%; }
+  73% { left: 34%; top: 81%; }
+  76% { left: 44%; top: 77%; }
+  79% { left: 52%; top: 79%; }
+  84% { left: 52%; top: 93%; }
+  90% { left: 54%; top: 94%; opacity: 1; }
+  93%, 100% { left: 54%; top: 94%; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo [class*="demo-"] { animation: none !important; }
+  .demo-step { opacity: 0; }
+  .demo-step-5 { opacity: 1; }
+  .demo-cursor, .demo-saved { display: none; }
+}

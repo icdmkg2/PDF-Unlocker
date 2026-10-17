@@ -2,7 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EditDemo } from "@/components/edit-demo";
 import { cn } from "@/lib/utils";
 import { inspectPdf, type PdfFacts } from "@/lib/pdf-inspect";
 import { suggestTools, type Suggestion } from "@/lib/suggest-tools";
@@ -53,7 +55,7 @@ export function LandingDrop() {
   return (
     <div
       className={cn(
-        "paper-stack relative flex min-h-[26rem] flex-col rounded-sm border bg-[#1a1a1a] p-7 transition-[border-color,transform] duration-200 sm:p-8 lg:min-h-[30rem]",
+        "paper-stack relative flex min-h-[26rem] flex-col rounded-sm border bg-[#1a1a1a] p-5 transition-[border-color,transform] duration-200 sm:p-7 lg:min-h-[30rem]",
         dragging ? "-translate-y-1 border-paper/40" : "border-border"
       )}
       onDragOver={(e) => {
@@ -93,37 +95,24 @@ export function LandingDrop() {
         />
       ) : (
         <>
-          <span className="font-label flex items-center gap-2 text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" aria-hidden />
-            Stays on this device
-          </span>
+          <EditDemo />
 
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="group mt-auto text-left focus-visible:outline-none"
-          >
-            <span className="font-display block text-[2.5rem] leading-[1.05] sm:text-5xl">
-              {state.kind === "reading" ? "Reading…" : dragging ? "Let go" : "Drop a PDF"}
-            </span>
-            <span className="font-display mt-1 block text-[2.5rem] leading-[1.05] text-muted-foreground underline decoration-border decoration-1 underline-offset-[10px] transition-colors group-hover:text-foreground group-hover:decoration-muted-foreground group-focus-visible:text-foreground sm:text-5xl">
-              or choose one
-            </span>
-          </button>
-
-          <p className="mt-6 max-w-xs text-sm leading-relaxed text-muted-foreground">
-            {state.kind === "error"
-              ? state.message
-              : "We'll check what it needs and open the right tool with it loaded."}
-          </p>
-
-          <div className="mt-8 space-y-2.5" aria-hidden>
-            {[100, 84, 92, 60].map((w, i) => (
-              <div key={i} className="h-1.5 rounded-full bg-border" style={{ width: `${w}%` }} />
-            ))}
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Button onClick={() => inputRef.current?.click()} className="font-semibold">
+              <Upload className="h-4 w-4" /> Try it on your PDF
+            </Button>
+            <span className="text-xs text-muted-foreground">or drop one here. It stays on your device.</span>
           </div>
-          {state.kind === "reading" && (
-            <Loader2 className="absolute right-7 top-7 h-4 w-4 animate-spin text-muted-foreground" aria-label="Reading file" />
+          {state.kind === "error" && <p className="mt-3 text-xs text-[#e0a4a4]">{state.message}</p>}
+
+          {(dragging || state.kind === "reading") && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-sm bg-[#141414]/92 text-center backdrop-blur-sm">
+              {state.kind === "reading" ? (
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Reading file" />
+              ) : null}
+              <p className="font-display text-4xl">{state.kind === "reading" ? "Reading…" : "Let go"}</p>
+              <p className="text-xs text-muted-foreground">We&apos;ll check what it needs and open the right tool.</p>
+            </div>
           )}
         </>
       )}

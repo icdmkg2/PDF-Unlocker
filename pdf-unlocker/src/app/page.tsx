@@ -50,13 +50,19 @@ export default function LandingPage() {
           </nav>
         </header>
 
-        <section className="mx-auto grid max-w-6xl gap-14 px-6 pb-20 pt-8 sm:px-8 lg:grid-cols-[1fr_minmax(0,27rem)] lg:items-center lg:gap-20 lg:pb-28 lg:pt-14">
-          <div>
-            <h1 className="font-display text-[2.75rem] leading-[1.05] tracking-tight [text-wrap:balance] sm:text-6xl lg:text-[4.5rem]">
-              Work on PDFs
-              <span className="block text-muted-foreground">without uploading them.</span>
-            </h1>
-            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+        {/* Phones: headline, then the demo sheet, then the rest. Desktop: text left, sheet right. */}
+        <section className="mx-auto grid max-w-6xl gap-x-20 gap-y-10 px-6 pb-20 pt-8 sm:px-8 lg:grid-cols-[1fr_minmax(0,28rem)] lg:grid-rows-[auto_1fr] lg:pb-28 lg:pt-14">
+          <h1 className="font-display text-[2.75rem] leading-[1.05] tracking-tight [text-wrap:balance] sm:text-6xl lg:col-start-1 lg:row-start-1 lg:self-end lg:text-[4.5rem]">
+            Work on PDFs
+            <span className="block text-muted-foreground">without uploading them.</span>
+          </h1>
+
+          <div className="mr-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mr-0 lg:self-center">
+            <LandingDrop />
+          </div>
+
+          <div className="lg:col-start-1 lg:row-start-2">
+            <p className="max-w-md text-[15px] leading-relaxed text-muted-foreground">
               Merge, sign, unlock, compress and {TOOL_COUNT - 4} more tools. Everything runs in
               this browser tab, so your files never reach a server.
             </p>
@@ -74,13 +80,14 @@ export default function LandingPage() {
                 Browse all {TOOL_COUNT} tools
               </a>
             </div>
-            <p className="font-label mt-12 text-muted-foreground">
-              Free · No uploads · No accounts · Works offline
-            </p>
-          </div>
-
-          <div className="mr-6 lg:mr-0">
-            <LandingDrop />
+            <ul className="font-label mt-12 flex flex-wrap gap-x-3 gap-y-2 text-muted-foreground" aria-label="What you get">
+              {["Free", "No uploads", "No accounts", "Works offline"].map((item, i) => (
+                <li key={item} className="flex items-center gap-3 whitespace-nowrap">
+                  {i > 0 && <span aria-hidden>·</span>}
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
