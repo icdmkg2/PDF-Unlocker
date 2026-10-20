@@ -47,3 +47,6 @@ next-env.d.ts
 
 # OCR engine, copied from node_modules at build time
 /public/ocr/
+
+# /brag launch-video output (rendered video and its build files)
+/brag-output*/
